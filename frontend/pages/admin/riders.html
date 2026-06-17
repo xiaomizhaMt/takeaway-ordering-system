@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>配送员管理 - 管理后台</title><link rel="stylesheet" href="../../css/style.css"></head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">⚙️ 管理后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="users.html">用户管理</a></li>
+      <li><a href="merchants.html">商家管理</a></li>
+      <li><a href="riders.html" class="active">配送员管理</a></li>
+      <li><a href="orders.html">订单监管</a></li>
+      <li><a href="complaints.html">投诉管理</a></li>
+      <li><a href="statistics.html">数据统计</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+  <div class="container">
+    <div class="page-header"><h2>🛵 配送员管理</h2>
+      <div class="flex gap-10">
+      <input type="text" class="form-control" id="riderKeyword" placeholder="账号/姓名/手机号" style="width:190px" onkeydown="if(event.key==='Enter') loadRiders()">
+      <select class="form-control" id="auditFilter" style="width:150px" onchange="loadRiders()">
+        <option value="">全部</option>
+        <option value="0">待审核</option>
+        <option value="1">已通过</option>
+        <option value="2">已驳回</option>
+      </select>
+      <button class="btn btn-primary" onclick="loadRiders()">查询</button>
+      <button class="btn btn-outline" onclick="resetRiderQuery()">重置</button>
+      </div>
+    </div>
+    <div id="riderList" class="loading"><div class="spinner"></div></div>
+  </div>
+  <script src="../../js/api.js"></script>
+  <script>
+    async function loadRiders(){
+      const audit=document.getElementById('auditFilter').value;
+      const params={
+        audit_status:audit,
+        keyword:document.getElementById('riderKeyword').value.trim()
+      };
+      const res=await api.get('/admin/riders',params);
+      if(res.code!==200)return;
+      const cont=document.getElementById('riderList');
+      if(!res.data||res.data.length===0){cont.innerHTML='<div class="empty-state"><div class="empty-icon">🛵</div><p>暂无配送员</p></div>';return;}
+      cont.innerHTML=`<div class="table-container"><table><tr><th>ID</th><th>账号</th><th>密码</th><th>姓名</th><th>手机号</th><th>身份证号</th><th>工作状态</th><th>审核状态</th><th>注册时间</th><th>操作</th></tr>${res.data.map(r=>`<tr><td>${r.rider_id}</td><td>${r.account}</td><td>${r.password || '-'}</td><td>${r.rider_name}</td><td>${r.phone}</td><td>${r.id_card}</td><td>${RIDER_WORK_STATUS[r.work_status]?.label||'-'}</td><td>${r.audit_status===0?'<span class="badge badge-warning">待审核</span>':r.audit_status===1?'<span class="badge badge-success">已通过</span>':'<span class="badge badge-danger">已驳回</span>'}</td><td>${new Date(r.register_time).toLocaleString()}</td><td>${r.audit_status===0?`<button class="btn btn-sm btn-success" onclick="audit(${r.rider_id},1)">通过</button> <button class="btn btn-sm btn-danger" onclick="audit(${r.rider_id},2)">驳回</button>`:`<button class="btn btn-sm btn-outline" onclick="audit(${r.rider_id},0)">重置</button>`} <button class="btn btn-sm btn-outline" onclick="deleteRider(${r.rider_id})">删除</button></td></tr>`).join('')}</table></div>`;
+    }
+    function resetRiderQuery(){document.getElementById('riderKeyword').value='';document.getElementById('auditFilter').value='';loadRiders();}
+    async function deleteRider(id){
+      if(!confirm('确认删除该配送员？'))return;
+      const res=await api.del(`/admin/riders/${id}`);
+      if(res.code===200){showToast('已删除');loadRiders();}else showToast(res.message,'error');
+    }
+    async function audit(id,status){const label=status===1?'通过':status===2?'驳回':'重置';if(!confirm(`确认${label}该配送员？`))return;const res=await api.put(`/admin/riders/${id}/audit`,{audit_status:status});if(res.code===200){showToast(`已${label}`);loadRiders();}else showToast(res.message,'error');}
+    async function loadUserInfo(){const u=await checkRole('admin');if(u)document.getElementById('userInfo').textContent='👑 '+u.username;}
+    async function doLogout(){await auth.logout('admin');window.location.href='../../index.html';}
+    loadUserInfo();loadRiders();
+  </script>
+</body>
+</html>

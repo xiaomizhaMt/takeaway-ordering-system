@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>配送任务 - 外卖订餐管理系统</title><link rel="stylesheet" href="../../css/style.css"></head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🛵 配送员端</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="tasks.html" class="active">配送任务</a></li>
+      <li><a href="income.html">收益钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+  <div class="container">
+    <div class="page-header"><h2>📋 我的配送任务</h2>
+      <div class="flex gap-10">
+      <input type="text" class="form-control" id="taskKeyword" placeholder="订单号/商家/收货人/菜品" style="width:210px" onkeydown="if(event.key==='Enter') loadTasks()">
+      <select class="form-control" id="statusFilter" style="width:150px" onchange="loadTasks()">
+        <option value="">全部</option>
+        <option value="0">待取餐</option>
+        <option value="1">配送中</option>
+        <option value="2">已送达</option>
+        <option value="3">异常</option>
+      </select>
+      <input type="date" class="form-control" id="startDate" onchange="loadTasks()">
+      <input type="date" class="form-control" id="endDate" onchange="loadTasks()">
+      <button class="btn btn-primary" onclick="loadTasks()">查询</button>
+      <button class="btn btn-outline" onclick="resetTaskQuery()">重置</button>
+      </div>
+    </div>
+    <div id="taskList" class="loading"><div class="spinner"></div></div>
+  </div>
+  <div id="taskDetailModal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width:720px">
+      <div class="modal-header"><h3 id="taskDetailTitle">配送详情</h3><button class="modal-close" onclick="closeTaskDetail()">&times;</button></div>
+      <div id="taskDetailBody" class="card-body"></div>
+    </div>
+  </div>
+  <script src="../../js/api.js"></script>
+  <script>
+    function orderThumbs(imageUrls){
+      const urls=(imageUrls||'').split(',').filter(Boolean).slice(0,3);
+      if(urls.length===0) return '<span style="font-size:1.8rem">🍽️</span>';
+      return urls.map(u=>`<img src="${u}" style="width:48px;height:48px;border-radius:10px;object-fit:cover;margin-right:5px;border:1px solid var(--border)" onerror="this.style.display='none'">`).join('');
+    }
+    async function loadTasks(){
+      const status=document.getElementById('statusFilter').value;
+      const params={
+        delivery_status: status,
+        keyword: document.getElementById('taskKeyword').value.trim(),
+        start_date: document.getElementById('startDate').value,
+        end_date: document.getElementById('endDate').value
+      };
+      const res=await api.get('/rider/tasks',params);
+      if(res.code!==200)return;
+      const cont=document.getElementById('taskList');
+      if(!res.data||res.data.length===0){cont.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><p>暂无配送任务</p></div>';return;}
+      cont.innerHTML=res.data.map(t=>`
+        <div class="card mb-10">
+          <div class="card-body">
+            <div class="flex-between">
+              <div class="flex gap-10" style="align-items:center">
+                <div>${orderThumbs(t.image_urls)}</div>
+                <div><strong>${t.shop_name}</strong> → <span>${t.receiver_name}</span><br><small class="text-muted">${t.dish_summary || ''}</small></div>
+              </div>
+              <div>${deliveryStatusLabel(t.delivery_status)}</div>
+            </div>
+            <div class="mt-10 text-muted" style="font-size:0.85rem">
+              📍 商家：${t.merchant_address}<br>
+              📍 送达：${t.receiver_address}<br>
+              📞 ${t.receiver_phone}
+            </div>
+            <div class="flex gap-10 mt-10">
+              <button class="btn btn-sm btn-outline" onclick="showTaskDetail(${t.delivery_id})">查看详情</button>
+              ${t.delivery_status===0?`<button class="btn btn-sm btn-info" onclick="pickup(${t.delivery_id})">取餐</button>`:''}
+              ${t.delivery_status===1?`<button class="btn btn-sm btn-success" onclick="deliver(${t.delivery_id})">送达</button>
+               <button class="btn btn-sm btn-danger" onclick="reportException(${t.delivery_id})">异常</button>`:''}
+            </div>
+          </div>
+        </div>`).join('');
+    }
+    function resetTaskQuery(){
+      document.getElementById('taskKeyword').value='';
+      document.getElementById('statusFilter').value='';
+      document.getElementById('startDate').value='';
+      document.getElementById('endDate').value='';
+      loadTasks();
+    }
+    function closeTaskDetail(){document.getElementById('taskDetailModal').classList.add('hidden');}
+    async function showTaskDetail(deliveryId){
+      document.getElementById('taskDetailTitle').textContent=`配送 ${deliveryId} 详情`;
+      document.getElementById('taskDetailBody').innerHTML='<div class="loading"><div class="spinner"></div><p>正在查询配送详情...</p></div>';
+      document.getElementById('taskDetailModal').classList.remove('hidden');
+      const res=await api.get(`/rider/core/tasks/${deliveryId}`);
+      if(res.code!==200){document.getElementById('taskDetailBody').innerHTML=`<div class="empty-state"><p>${res.message}</p></div>`;return;}
+      const t=res.data;
+      document.getElementById('taskDetailBody').innerHTML=`
+        <div class="grid grid-2">
+          <div><strong>配送ID：</strong>${t.delivery_id}</div>
+          <div><strong>订单号：</strong>${t.order_id}</div>
+          <div><strong>配送员：</strong>${t.rider_name || '-'}</div>
+          <div><strong>商家：</strong>${t.shop_name || '-'}</div>
+          <div><strong>收货人：</strong>${t.receiver_name || t.customer_name || '-'}</div>
+          <div><strong>联系电话：</strong>${t.receiver_phone || '-'}</div>
+          <div><strong>配送状态：</strong>${deliveryStatusLabel(t.delivery_status)}</div>
+          <div><strong>配送收益：</strong>${t.delivery_income ? '¥' + t.delivery_income : '-'}</div>
+          <div style="grid-column:1/-1"><strong>收货地址：</strong>${t.receiver_address || '-'}</div>
+          <div><strong>接单时间：</strong>${t.accept_time ? new Date(t.accept_time).toLocaleString() : '-'}</div>
+          <div><strong>取餐时间：</strong>${t.pickup_time ? new Date(t.pickup_time).toLocaleString() : '-'}</div>
+          <div><strong>送达时间：</strong>${t.delivered_time ? new Date(t.delivered_time).toLocaleString() : '-'}</div>
+          <div><strong>异常说明：</strong>${t.exception_note || '-'}</div>
+        </div>`;
+    }
+    async function pickup(id){const r=await api.put(`/rider/tasks/${id}/pickup`);if(r.code===200){showToast('已取餐');loadTasks();}else showToast(r.message,'error');}
+    async function deliver(id){const r=await api.put(`/rider/tasks/${id}/deliver`);if(r.code===200){showToast('已送达');loadTasks();}else showToast(r.message,'error');}
+    async function reportException(id){const note=prompt('请填写异常说明：');if(!note)return;const r=await api.put(`/rider/tasks/${id}/exception`,{exception_note:note});if(r.code===200){showToast('已上报');loadTasks();}else showToast(r.message,'error');}
+    async function loadUserInfo(){const u=await checkRole('rider');if(u)document.getElementById('userInfo').textContent='🛵 '+u.username;}
+    async function doLogout(){await auth.logout('rider');window.location.href='../../index.html';}
+    loadUserInfo();loadTasks();
+  </script>
+</body>
+</html>

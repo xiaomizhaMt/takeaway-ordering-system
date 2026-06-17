@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的钱包 - 外卖订餐管理系统</title>
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🍱 外卖订餐</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="orders.html">我的订单</a></li>
+      <li><a href="reviews.html">我的评价</a></li>
+      <li><a href="wallet.html" class="active">我的钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h2>💳 我的钱包</h2>
+      <button class="btn btn-outline" onclick="loadWallet()">刷新</button>
+    </div>
+
+    <div class="grid grid-3 mb-20">
+      <div class="card"><div class="card-body stat-card"><div class="stat-icon">💰</div><div class="stat-number" id="walletBalance">¥0.00</div><div class="stat-label">可用余额</div></div></div>
+      <div class="card"><div class="card-body stat-card"><div class="stat-icon">➕</div><div class="stat-number" id="totalRecharge">¥0.00</div><div class="stat-label">累计充值</div></div></div>
+      <div class="card"><div class="card-body stat-card"><div class="stat-icon">↩️</div><div class="stat-number" id="totalIncome">¥0.00</div><div class="stat-label">累计入账</div></div></div>
+    </div>
+
+    <div class="card mb-20">
+      <div class="card-header">充值</div>
+      <div class="card-body">
+        <div class="flex gap-10" style="flex-wrap:wrap;align-items:center">
+          <input type="number" class="form-control" id="rechargeAmount" min="0.01" step="0.01" placeholder="充值金额" style="width:180px">
+          <select class="form-control" id="rechargeChannel" style="width:150px">
+            <option value="wechat">微信支付</option>
+            <option value="alipay">支付宝</option>
+            <option value="bank_card">银行卡</option>
+          </select>
+          <button class="btn btn-primary" onclick="recharge()">确认充值</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">资金流水</div>
+      <div id="transactionList" class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    const TX_LABEL = {
+      recharge: '充值',
+      payment: '订单支付',
+      refund: '退款入账',
+      withdraw: '提现',
+      merchant_income: '商家入账',
+      rider_income: '配送收益'
+    };
+    function money(v){ return Number(v || 0).toFixed(2); }
+    function txLabel(type){ return TX_LABEL[type] || type || '-'; }
+    function signedAmount(v){ const n = Number(v || 0); return `${n >= 0 ? '+' : '-'}¥${money(Math.abs(n))}`; }
+    function renderTransactions(rows){
+      if(!rows || rows.length === 0) return '<div class="empty-state"><div class="empty-icon">💳</div><p>暂无资金流水</p></div>';
+      return `<div class="table-container"><table><tr><th>时间</th><th>类型</th><th>金额</th><th>余额</th><th>渠道</th><th>关联订单</th><th>备注</th></tr>${rows.map(t=>`
+        <tr>
+          <td>${new Date(t.create_time).toLocaleString()}</td>
+          <td>${txLabel(t.transaction_type)}</td>
+          <td class="${Number(t.amount) >= 0 ? 'text-success' : 'text-danger'}">${signedAmount(t.amount)}</td>
+          <td>¥${money(t.balance_after)}</td>
+          <td>${payMethodLabel(t.pay_channel)}</td>
+          <td>${t.related_order_id || '-'}</td>
+          <td>${t.remark || '-'}</td>
+        </tr>`).join('')}</table></div>`;
+    }
+    async function loadWallet(){
+      const res = await api.get('/user/wallet');
+      if(res.code !== 200){ showToast(res.message, 'error'); return; }
+      const d = res.data || {};
+      const s = d.summary || {};
+      document.getElementById('walletBalance').textContent = `¥${money(d.balance)}`;
+      document.getElementById('totalRecharge').textContent = `¥${money(s.total_recharge)}`;
+      document.getElementById('totalIncome').textContent = `¥${money(s.total_income)}`;
+      document.getElementById('transactionList').innerHTML = renderTransactions(d.transactions || []);
+    }
+    async function recharge(){
+      const amount = document.getElementById('rechargeAmount').value;
+      if(!amount || Number(amount) <= 0){ showToast('请输入有效充值金额', 'warning'); return; }
+      const res = await api.post('/user/wallet/recharge', {
+        amount,
+        pay_channel: document.getElementById('rechargeChannel').value
+      });
+      if(res.code === 200){
+        showToast('充值成功', 'success');
+        document.getElementById('rechargeAmount').value = '';
+        loadWallet();
+      } else showToast(res.message, 'error');
+    }
+    async function loadUserInfo(){ const u = await checkRole('user'); if(u) document.getElementById('userInfo').textContent = '👤 ' + u.username; }
+    async function doLogout(){ await auth.logout('user'); window.location.href='../../index.html'; }
+    loadUserInfo(); loadWallet();
+  </script>
+</body>
+</html>

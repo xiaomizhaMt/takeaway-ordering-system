@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>评价管理 - 商家后台</title><link rel="stylesheet" href="../../css/style.css"></head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🏪 商家后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="dishes.html">菜品管理</a></li>
+      <li><a href="orders.html">订单管理</a></li>
+      <li><a href="reviews.html" class="active">评价管理</a></li>
+      <li><a href="statistics.html">经营统计</a></li>
+      <li><a href="wallet.html">钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+  <div class="container">
+    <div class="page-header"><h2>⭐ 评价管理</h2>
+      <div class="flex gap-10">
+        <input type="text" class="form-control" id="reviewKeyword" placeholder="订单号/用户/内容" style="width:190px" onkeydown="if(event.key==='Enter') loadReviews()">
+        <select class="form-control" id="replyStatus" style="width:140px" onchange="loadReviews()">
+          <option value="">全部回复</option>
+          <option value="unreplied">未回复</option>
+          <option value="replied">已回复</option>
+        </select>
+        <input type="date" class="form-control" id="startDate" onchange="loadReviews()">
+        <input type="date" class="form-control" id="endDate" onchange="loadReviews()">
+        <button class="btn btn-primary" onclick="loadReviews()">查询</button>
+        <button class="btn btn-outline" onclick="resetReviewQuery()">重置</button>
+      </div>
+    </div>
+    <div id="reviewList" class="loading"><div class="spinner"></div></div>
+  </div>
+  <div id="replyModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header"><h3>回复评价</h3><button class="modal-close" onclick="document.getElementById('replyModal').classList.add('hidden')">&times;</button></div>
+      <div class="form-group"><label>回复内容</label><textarea class="form-control" id="replyContent" rows="4"></textarea></div>
+      <button class="btn btn-primary btn-block" id="replyBtn" onclick="submitReply()">提交回复</button>
+    </div>
+  </div>
+  <script src="../../js/api.js"></script>
+  <script>
+    let currentReviewId = null;
+    async function loadReviews(){
+      const res=await api.get('/merchant/reviews',{
+        keyword: document.getElementById('reviewKeyword').value.trim(),
+        reply_status: document.getElementById('replyStatus').value,
+        start_date: document.getElementById('startDate').value,
+        end_date: document.getElementById('endDate').value
+      });
+      if(res.code!==200)return;
+      const cont=document.getElementById('reviewList');
+      if(!res.data||res.data.length===0){cont.innerHTML='<div class="empty-state"><div class="empty-icon">⭐</div><p>暂无评价</p></div>';return;}
+      cont.innerHTML=res.data.map(r=>`
+        <div class="card mb-10">
+          <div class="card-body">
+            <div class="flex-between"><strong>${r.user_name}</strong><span class="text-muted">${new Date(r.review_time).toLocaleString()}</span></div>
+            <div class="mt-10">菜品: ${'★'.repeat(r.dish_score||0)}${'☆'.repeat(5-(r.dish_score||0))} | 配送: ${'★'.repeat(r.delivery_score||0)}${'☆'.repeat(5-(r.delivery_score||0))}</div>
+            <p class="mt-10">${r.content||''}</p>
+            ${r.merchant_reply ? `<div class="mt-10" style="background:var(--light-gray);padding:10px;border-radius:8px"><small class="text-muted">商家回复：</small>${r.merchant_reply}</div>` : ''}
+            ${!r.merchant_reply ? `<button class="btn btn-sm btn-primary mt-10" onclick="showReply(${r.review_id})">回复</button>` : ''}
+          </div>
+        </div>`).join('');
+    }
+    function resetReviewQuery(){
+      document.getElementById('reviewKeyword').value='';
+      document.getElementById('replyStatus').value='';
+      document.getElementById('startDate').value='';
+      document.getElementById('endDate').value='';
+      loadReviews();
+    }
+    function showReply(id){currentReviewId=id;document.getElementById('replyContent').value='';document.getElementById('replyModal').classList.remove('hidden');}
+    async function submitReply(){const content=document.getElementById('replyContent').value.trim();if(!content){showToast('请输入回复内容','warning');return;}const res=await api.put(`/merchant/reviews/${currentReviewId}/reply`,{merchant_reply:content});if(res.code===200){showToast('回复成功');document.getElementById('replyModal').classList.add('hidden');loadReviews();}else showToast(res.message,'error');}
+    async function loadUserInfo(){const u=await checkRole('merchant');if(u)document.getElementById('userInfo').textContent='🏪 '+u.username;}
+    async function doLogout(){await auth.logout('merchant');window.location.href='../../index.html';}
+    loadUserInfo();loadReviews();
+  </script>
+</body>
+</html>

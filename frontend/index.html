@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>外卖订餐管理系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <h2>🍱 外卖订餐管理系统</h2>
+      
+      <!-- 角色选择 -->
+      <div class="role-tabs">
+        <button class="role-tab active" onclick="switchRole('user', this)">用户</button>
+        <button class="role-tab" onclick="switchRole('merchant', this)">商家</button>
+        <button class="role-tab" onclick="switchRole('rider', this)">配送员</button>
+        <button class="role-tab" onclick="switchRole('admin', this)">管理员</button>
+      </div>
+
+      <!-- 登录表单 -->
+      <div id="loginForm">
+        <div class="form-group">
+          <label>账号</label>
+          <input type="text" class="form-control" id="loginUsername" placeholder="请输入账号">
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" class="form-control" id="loginPassword" placeholder="请输入密码" onkeydown="if(event.key==='Enter') doLogin()">
+        </div>
+        <button class="btn btn-primary btn-block btn-lg" onclick="doLogin()">登 录</button>
+      </div>
+
+      <!-- 注册链接 -->
+      <div class="auth-footer" id="registerLink">
+        还没有账号？<a id="registerLinkHref" href="register.html?role=user">立即注册</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    let currentRole = 'user';
+    const roleOrder = ['user', 'merchant', 'rider', 'admin'];
+
+    function switchRole(role, btn) {
+      currentRole = role;
+      document.querySelectorAll('.role-tab').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+      // 管理员没有注册链接
+      const regLink = document.getElementById('registerLink');
+      if (role === 'admin') {
+        regLink.style.display = 'none';
+      } else {
+        regLink.style.display = 'block';
+        document.getElementById('registerLinkHref').href = `register.html?role=${role}`;
+      }
+    }
+
+    async function doLogin() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      if (!username || !password) {
+        showToast('请输入账号和密码', 'warning');
+        return;
+      }
+      const res = await auth.login(username, password, currentRole);
+      if (res.code === 200) {
+        showToast(res.message, 'success');
+        // 跳转到对应角色首页
+        const role = currentRole;
+        let target = 'pages/user/dashboard.html';
+        if (role === 'merchant') target = 'pages/merchant/dashboard.html';
+        else if (role === 'rider') target = 'pages/rider/dashboard.html';
+        else if (role === 'admin') target = 'pages/admin/dashboard.html';
+        window.location.href = target;
+      } else {
+        showToast(res.message, 'error');
+      }
+    }
+
+    // 支持 register.html 注册后跳回 index.html?role=merchant / rider，
+    // 自动选中对应登录角色，避免商家账号误用“用户”入口登录。
+    function initRoleFromUrl() {
+      const roleParam = new URLSearchParams(window.location.search).get('role');
+      if (!roleParam || !roleOrder.includes(roleParam)) return;
+      const buttons = document.querySelectorAll('.role-tab');
+      switchRole(roleParam, buttons[roleOrder.indexOf(roleParam)]);
+    }
+
+    initRoleFromUrl();
+  </script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>用户管理 - 管理后台</title><link rel="stylesheet" href="../../css/style.css"></head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">⚙️ 管理后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="users.html" class="active">用户管理</a></li>
+      <li><a href="merchants.html">商家管理</a></li>
+      <li><a href="riders.html">配送员管理</a></li>
+      <li><a href="orders.html">订单监管</a></li>
+      <li><a href="complaints.html">投诉管理</a></li>
+      <li><a href="statistics.html">数据统计</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+  <div class="container">
+    <div class="page-header"><h2>👤 用户管理</h2>
+      <div class="flex gap-10">
+        <input type="text" class="form-control" id="searchInput" placeholder="搜索账号/姓名/手机号..." style="width:200px" onkeydown="if(event.key==='Enter') loadUsers()">
+        <button class="btn btn-primary" onclick="loadUsers()">搜索</button>
+        <button class="btn btn-outline" onclick="document.getElementById('searchInput').value='';loadUsers()">重置</button>
+      </div>
+    </div>
+    <div id="userList" class="loading"><div class="spinner"></div></div>
+  </div>
+  <script src="../../js/api.js"></script>
+  <script>
+    async function loadUsers(){
+      const keyword=document.getElementById('searchInput').value.trim();
+      const params=keyword?{keyword}:{};
+      const res=await api.get('/admin/users',params);
+      if(res.code!==200)return;
+      const cont=document.getElementById('userList');
+      if(!res.data||res.data.length===0){cont.innerHTML='<div class="empty-state"><div class="empty-icon">👤</div><p>暂无用户</p></div>';return;}
+      cont.innerHTML=`<div class="table-container"><table><tr><th>ID</th><th>账号</th><th>密码</th><th>姓名</th><th>手机号</th><th>状态</th><th>注册时间</th><th>操作</th></tr>${res.data.map(u=>`<tr><td>${u.user_id}</td><td>${u.username}</td><td>${u.password || '-'}</td><td>${u.real_name||'-'}</td><td>${u.phone}</td><td>${u.account_status===1?'<span class="badge badge-success">正常</span>':'<span class="badge badge-danger">禁用</span>'}</td><td>${new Date(u.register_time).toLocaleString()}</td><td><button class="btn btn-sm ${u.account_status===1?'btn-danger':'btn-success'}" onclick="toggleUser(${u.user_id},${u.account_status})">${u.account_status===1?'禁用':'启用'}</button> <button class="btn btn-sm btn-outline" onclick="deleteUser(${u.user_id})">删除</button></td></tr>`).join('')}</table></div>`;
+    }
+    async function toggleUser(id,status){
+      const action=status===1?'禁用':'启用';
+      if(!confirm(`确认${action}该用户？`))return;
+      const res=await api.put(`/admin/users/${id}/status`,{account_status:status===1?0:1});
+      if(res.code===200){showToast(`已${action}`);loadUsers();}else showToast(res.message,'error');
+    }
+    async function deleteUser(id){
+      if(!confirm('确认删除该用户？删除后不可恢复！'))return;
+      const res=await api.del(`/admin/users/${id}`);
+      if(res.code===200){showToast('已删除');loadUsers();}else showToast(res.message,'error');
+    }
+    async function loadUserInfo(){const u=await checkRole('admin');if(u)document.getElementById('userInfo').textContent='👑 '+u.username;}
+    async function doLogout(){await auth.logout('admin');window.location.href='../../index.html';}
+    loadUserInfo();loadUsers();
+  </script>
+</body>
+</html>

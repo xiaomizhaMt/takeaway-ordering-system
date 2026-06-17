@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>管理后台 - 外卖订餐管理系统</title><link rel="stylesheet" href="../../css/style.css"></head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">⚙️ 管理后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html" class="active">首页</a></li>
+      <li><a href="users.html">用户管理</a></li>
+      <li><a href="merchants.html">商家管理</a></li>
+      <li><a href="riders.html">配送员管理</a></li>
+      <li><a href="orders.html">订单监管</a></li>
+      <li><a href="complaints.html">投诉管理</a></li>
+      <li><a href="statistics.html">数据统计</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+  <div class="container">
+    <div class="page-header"><h2>📊 平台概览</h2></div>
+    <div id="overviewCards" class="grid grid-4 mb-20"></div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-header">各状态订单分布</div>
+        <div id="orderStatusStats" class="card-body loading"><div class="spinner"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">商家排名（Top 10）</div>
+        <div id="merchantRanking" class="card-body loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+  <script src="../../js/api.js"></script>
+  <script>
+    async function loadOverview(){
+      const res=await api.get('/admin/statistics/overview');
+      if(res.code===200){
+        const d=res.data;
+        document.getElementById('overviewCards').innerHTML=`
+          <div class="card"><div class="card-body stat-card"><div class="stat-icon">👤</div><div class="stat-number">${d.user_count}</div><div class="stat-label">用户总数</div></div></div>
+          <div class="card"><div class="card-body stat-card"><div class="stat-icon">🏪</div><div class="stat-number">${d.merchant_count}</div><div class="stat-label">商家总数</div></div></div>
+          <div class="card"><div class="card-body stat-card"><div class="stat-icon">🛵</div><div class="stat-number">${d.rider_count}</div><div class="stat-label">配送员总数</div></div></div>
+          <div class="card"><div class="card-body stat-card"><div class="stat-icon">📦</div><div class="stat-number">${d.total_orders}</div><div class="stat-label">已完成订单</div></div></div>
+          <div class="card"><div class="card-body stat-card"><div class="stat-icon">💰</div><div class="stat-number">¥${parseFloat(d.total_revenue).toFixed(2)}</div><div class="stat-label">平台总营收</div></div></div>
+          <div class="card"><div class="card-body stat-card"><div class="stat-icon">🚚</div><div class="stat-number">${d.total_deliveries}</div><div class="stat-label">配送完成数</div></div></div>
+        `;
+        const stats=d.order_status_stats||[];
+        const orderStatusLabels = {0:'待支付',1:'待接单',2:'备餐中',3:'已出餐',4:'配送中',5:'已完成',6:'已取消',7:'异常'};
+        document.getElementById('orderStatusStats').innerHTML=stats.length===0?'<div class="text-muted text-center">暂无数据</div>':
+          `<div class="table-container"><table><tr><th>订单状态</th><th>数量</th></tr>${stats.map(s=>`<tr><td>${orderStatusLabels[s.order_status]||s.order_status}</td><td>${s.count}</td></tr>`).join('')}</table></div>`;
+
+      }
+      const rankRes=await api.get('/admin/statistics/merchant-ranking',{sort_by:'orders'});
+      if(rankRes.code===200){
+        const data=rankRes.data||[];
+        document.getElementById('merchantRanking').innerHTML=data.length===0?'<div class="text-muted text-center">暂无数据</div>':
+          `<div class="table-container"><table><tr><th>排名</th><th>商家</th><th>订单量</th><th>营收</th></tr>${data.map((m,i)=>`<tr><td>${i+1}</td><td>${m.shop_name}</td><td>${m.order_count}</td><td>¥${parseFloat(m.total_revenue).toFixed(2)}</td></tr>`).join('')}</table></div>`;
+      }
+    }
+    async function loadUserInfo(){const u=await checkRole('admin');if(u)document.getElementById('userInfo').textContent='👑 '+u.username;}
+    async function doLogout(){await auth.logout('admin');window.location.href='../../index.html';}
+    loadUserInfo();loadOverview();
+  </script>
+</body>
+</html>

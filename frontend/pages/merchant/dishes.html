@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>菜品管理 - 商家后台</title><link rel="stylesheet" href="../../css/style.css">
+  <style>
+    .dish-thumb { width:72px;height:54px;border-radius:10px;object-fit:cover;border:1px solid var(--border);background:#f3f4f6;cursor:pointer; }
+    .dish-thumb-placeholder { width:72px;height:54px;border-radius:10px;border:1px dashed #cbd5e1;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:1.6rem;cursor:pointer; }
+    .image-tip { font-size:.78rem;color:#64748b;margin-top:4px; }
+    .query-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:flex-end; }
+    .query-toolbar .form-control { width:auto; min-width:130px; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🏪 商家后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="dishes.html" class="active">菜品管理</a></li>
+      <li><a href="orders.html">订单管理</a></li>
+      <li><a href="reviews.html">评价管理</a></li>
+      <li><a href="statistics.html">经营统计</a></li>
+      <li><a href="wallet.html">钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+  <div class="container">
+    <div class="page-header"><h2>🍽️ 菜品管理</h2><button class="btn btn-primary" onclick="showAddModal()">+ 新增菜品</button></div>
+
+    <!-- 库存预警 -->
+    <div id="stockAlert" class="hidden mb-20"></div>
+
+    <!-- 菜品查询：符合商品多条件查询、库存预警查询要求 -->
+    <div class="card mb-20">
+      <div class="card-body query-toolbar">
+        <input type="text" class="form-control" id="dishKeyword" placeholder="菜名/描述/规格" onkeydown="if(event.key==='Enter') loadDishes()">
+        <select class="form-control" id="categoryFilter" onchange="loadDishes()">
+          <option value="">全部分类</option>
+        </select>
+        <select class="form-control" id="saleStatusFilter" onchange="loadDishes()">
+          <option value="">全部状态</option>
+          <option value="1">上架</option>
+          <option value="0">下架</option>
+        </select>
+        <select class="form-control" id="stockAlertFilter" onchange="loadDishes()">
+          <option value="">全部库存</option>
+          <option value="1">仅库存预警</option>
+        </select>
+        <button class="btn btn-primary" onclick="loadDishes()">查询</button>
+        <button class="btn btn-outline" onclick="resetDishQuery()">重置</button>
+      </div>
+    </div>
+
+    <!-- 菜品列表 -->
+    <div id="dishList" class="loading"><div class="spinner"></div></div>
+    <input type="file" id="dishImageFile" accept="image/*" class="hidden" onchange="uploadSelectedDishImage()">
+  </div>
+
+  <!-- 新增/编辑菜品模态框 -->
+  <div id="dishModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header"><h3 id="modalTitle">新增菜品</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="form-group"><label>菜品名称 *</label><input type="text" class="form-control" id="dishName" placeholder="请输入菜品名称"></div>
+      <div class="form-group"><label>菜品分类 *</label><select class="form-control" id="categoryName"></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>价格 *</label><input type="number" step="0.01" class="form-control" id="dishPrice" placeholder="单价"></div>
+        <div class="form-group"><label>规格</label><input type="text" class="form-control" id="dishSpec" placeholder="如：大份/标准"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>库存</label><input type="number" class="form-control" id="dishStock" placeholder="库存数量" value="0"></div>
+        <div class="form-group"><label>预警库存</label><input type="number" class="form-control" id="warningStock" placeholder="预警阈值" value="0"></div>
+      </div>
+      <div class="form-group"><label>图片URL</label><input type="text" class="form-control" id="imageUrl" placeholder="不填写则使用默认虚拟图片；保存后可在列表中双击图片本地上传"></div>
+      <div class="form-group"><label>菜品描述</label><textarea class="form-control" id="dishDesc" rows="2" placeholder="菜品详情"></textarea></div>
+      <div class="form-group"><label>上架状态</label>
+        <select class="form-control" id="saleStatus"><option value="1">上架</option><option value="0">下架</option></select>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveDish()">保存</button>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    let editDishId = null;
+    let uploadingDishId = null;
+    const FIXED_DISH_CATEGORIES = ['盖饭', '甜品', '水果', '小吃', '饮品', '主食', '夜宵', '粥粉面'];
+
+    function categoryOptions(selected = '') {
+      return '<option value="">请选择分类</option>' +
+        FIXED_DISH_CATEGORIES.map(c => `<option value="${c}" ${c === selected ? 'selected' : ''}>${c}</option>`).join('');
+    }
+
+    function initCategorySelect(selected = '') {
+      const select = document.getElementById('categoryName');
+      select.innerHTML = categoryOptions(FIXED_DISH_CATEGORIES.includes(selected) ? selected : '');
+      if (selected && !FIXED_DISH_CATEGORIES.includes(selected)) {
+        showToast(`原分类“${selected}”不在固定分类内，请重新选择`, 'warning');
+      }
+    }
+
+    function dishImageHtml(d) {
+      if (d.image_url) {
+        return `<img class="dish-thumb" src="${d.image_url}" alt="${d.dish_name}" title="双击从本地上传替换图片" ondblclick="event.stopPropagation();chooseDishImage(${d.dish_id})" onerror="this.outerHTML='<div class=&quot;dish-thumb-placeholder&quot; title=&quot;双击上传图片&quot; ondblclick=&quot;event.stopPropagation();chooseDishImage(${d.dish_id})&quot;>🍽️</div>'">`;
+      }
+      return `<div class="dish-thumb-placeholder" title="双击从本地上传图片" ondblclick="event.stopPropagation();chooseDishImage(${d.dish_id})">🍽️</div>`;
+    }
+
+    async function loadDishes() {
+      const res = await api.get('/merchant/dishes', {
+        keyword: document.getElementById('dishKeyword').value.trim(),
+        category: document.getElementById('categoryFilter').value,
+        sale_status: document.getElementById('saleStatusFilter').value,
+        stock_alert: document.getElementById('stockAlertFilter').value
+      });
+      if (res.code !== 200) return;
+      const dishes = res.data || [];
+
+      // 更新分类筛选
+      const filter = document.getElementById('categoryFilter');
+      const currentFilter = filter.value;
+      filter.innerHTML = '<option value="">全部分类</option>' + FIXED_DISH_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+      filter.value = currentFilter || '';
+
+      renderDishes(dishes);
+
+      // 库存预警
+      const alertRes = await api.get('/merchant/stock/alerts');
+      if (alertRes.code === 200 && alertRes.data && alertRes.data.length > 0) {
+        const alertDiv = document.getElementById('stockAlert');
+        alertDiv.className = 'mb-20';
+        alertDiv.innerHTML = `<div class="card"><div class="card-body" style="background:#fff3cd;color:#856404">
+          <strong>⚠️ 库存预警：</strong>${alertRes.data.map(d => `<span class="badge badge-warning">${d.dish_name} (库存:${d.stock})</span>`).join(' ')}
+        </div></div>`;
+      }
+    }
+
+    function resetDishQuery() {
+      document.getElementById('dishKeyword').value = '';
+      document.getElementById('categoryFilter').value = '';
+      document.getElementById('saleStatusFilter').value = '';
+      document.getElementById('stockAlertFilter').value = '';
+      loadDishes();
+    }
+
+    function renderDishes(dishes) {
+      const container = document.getElementById('dishList');
+      if (!dishes || dishes.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">🍽️</div><p>暂无菜品，点击右上角添加</p></div>';
+        return;
+      }
+      container.innerHTML = `<div class="table-container"><table>
+        <tr><th>ID</th><th>图片</th><th>菜品名称</th><th>分类</th><th>价格</th><th>规格</th><th>库存</th><th>销量</th><th>状态</th><th>操作</th></tr>
+        ${dishes.map(d => `<tr>
+          <td>${d.dish_id}</td>
+          <td>${dishImageHtml(d)}<div class="image-tip">双击修改</div></td>
+          <td><strong>${d.dish_name}</strong></td>
+          <td>${d.category_name || '-'}</td>
+          <td>¥${d.price}</td>
+          <td>${d.specification || '-'}</td>
+          <td>${d.stock}${d.warning_stock > 0 && d.stock <= d.warning_stock ? ' ⚠️' : ''}</td>
+          <td>${d.sales_count}</td>
+          <td>${d.sale_status === 1 ? '<span class="badge badge-success">上架</span>' : '<span class="badge badge-secondary">下架</span>'}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="editDish(${d.dish_id})">编辑</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteDish(${d.dish_id})">删除</button>
+          </td>
+        </tr>`).join('')}
+      </table></div>`;
+    }
+
+    function chooseDishImage(dishId) {
+      uploadingDishId = dishId;
+      const input = document.getElementById('dishImageFile');
+      input.value = '';
+      input.click();
+    }
+
+    async function uploadSelectedDishImage() {
+      const input = document.getElementById('dishImageFile');
+      if (!uploadingDishId || !input.files || input.files.length === 0) return;
+      const fd = new FormData();
+      fd.append('image', input.files[0]);
+      const res = await fetch(`/api/merchant/dishes/${uploadingDishId}/image`, {
+        method: 'POST',
+        body: fd,
+        credentials: 'include',
+        headers: { 'X-Auth-Token': getToken('merchant') || '' }
+      }).then(r => r.json());
+      if (res.code === 200) {
+        showToast('图片上传成功');
+        loadDishes();
+      } else {
+        showToast(res.message || '图片上传失败', 'error');
+      }
+      uploadingDishId = null;
+    }
+
+    function showAddModal() {
+      editDishId = null;
+      document.getElementById('modalTitle').textContent = '新增菜品';
+      ['dishName','dishPrice','dishSpec','dishStock','warningStock','imageUrl','dishDesc'].forEach(id => document.getElementById(id).value = '');
+      initCategorySelect('');
+      document.getElementById('saleStatus').value = '1';
+      document.getElementById('dishModal').classList.remove('hidden');
+    }
+
+    function editDish(id) {
+      editDishId = id;
+      document.getElementById('modalTitle').textContent = '编辑菜品';
+      // 从表格查找，此处简化：重新加载单条
+      api.get('/merchant/dishes').then(res => {
+        if (res.code !== 200) return;
+        const dish = res.data.find(d => d.dish_id === id);
+        if (!dish) return;
+        document.getElementById('dishName').value = dish.dish_name || '';
+        initCategorySelect(dish.category_name || '');
+        document.getElementById('dishPrice').value = dish.price || '';
+        document.getElementById('dishSpec').value = dish.specification || '';
+        document.getElementById('dishStock').value = dish.stock || 0;
+        document.getElementById('warningStock').value = dish.warning_stock || 0;
+        document.getElementById('imageUrl').value = dish.image_url || '';
+        document.getElementById('dishDesc').value = dish.dish_desc || '';
+        document.getElementById('saleStatus').value = dish.sale_status;
+        document.getElementById('dishModal').classList.remove('hidden');
+      });
+    }
+
+    function closeModal() { document.getElementById('dishModal').classList.add('hidden'); }
+
+    async function saveDish() {
+      const data = {
+        dish_name: document.getElementById('dishName').value.trim(),
+        category_name: document.getElementById('categoryName').value,
+        price: parseFloat(document.getElementById('dishPrice').value) || 0,
+        specification: document.getElementById('dishSpec').value.trim(),
+        stock: parseInt(document.getElementById('dishStock').value) || 0,
+        warning_stock: parseInt(document.getElementById('warningStock').value) || 0,
+        image_url: document.getElementById('imageUrl').value.trim(),
+        dish_desc: document.getElementById('dishDesc').value.trim(),
+        sale_status: parseInt(document.getElementById('saleStatus').value)
+      };
+      if (!data.dish_name) { showToast('请输入菜品名称', 'warning'); return; }
+      if (!data.category_name) { showToast('请选择菜品分类', 'warning'); return; }
+      if (data.price <= 0) { showToast('请输入有效的价格', 'warning'); return; }
+
+      let res;
+      if (editDishId) {
+        res = await api.put(`/merchant/dishes/${editDishId}`, data);
+      } else {
+        res = await api.post('/merchant/dishes', data);
+      }
+      if (res.code === 200) {
+        showToast(editDishId ? '修改成功' : '新增成功');
+        closeModal();
+        loadDishes();
+      } else {
+        showToast(res.message, 'error');
+      }
+    }
+
+    async function deleteDish(id) {
+      if (!confirm('确认删除该菜品？有关联订单的菜品不可删除')) return;
+      const res = await api.del(`/merchant/dishes/${id}`);
+      if (res.code === 200) { showToast('已删除'); loadDishes(); }
+      else showToast(res.message, 'error');
+    }
+
+    async function loadUserInfo(){const u=await checkRole('merchant');if(u)document.getElementById('userInfo').textContent='🏪 '+u.username;}
+    async function doLogout(){await auth.logout('merchant');window.location.href='../../index.html';}
+    initCategorySelect('');
+    loadUserInfo();
+    loadDishes();
+  </script>
+</body>
+</html>

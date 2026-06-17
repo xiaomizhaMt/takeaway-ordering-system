@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>历史订单评价展示 - 外卖订餐管理系统</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    .review-header-actions { display:flex; gap:10px; flex-wrap:wrap; }
+    .review-summary-card { margin-bottom:18px; }
+    .review-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .review-stat { padding:14px; border-radius:12px; background:#fff8f4; color:#7a3b18; }
+    .review-stat strong { display:block; font-size:1.35rem; color:var(--primary); margin-top:4px; }
+    .review-item-card { margin-bottom:12px; }
+    .review-meta { display:flex; justify-content:space-between; gap:12px; color:#64748b; font-size:.86rem; flex-wrap:wrap; }
+    .review-stars { color:#ff9f1a; letter-spacing:1px; }
+    .review-dishes { margin-top:10px; padding:10px 12px; border-radius:8px; background:var(--light-gray); }
+    .merchant-reply { margin-top:10px; padding:10px 12px; border-radius:8px; background:#fff8f4; color:#7a3b18; }
+    @media (max-width:768px) { .review-summary-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🍱 外卖订餐</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="orders.html">我的订单</a></li>
+      <li><a href="reviews.html">我的评价</a></li>
+      <li><a href="wallet.html">我的钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h2 id="pageTitle">⭐ 历史订单评价展示</h2>
+        <div class="text-muted" style="font-size:.9rem;margin-top:4px">展示该商家的历史订单评价，并列出评价对应订单包含的菜品。</div>
+      </div>
+      <div class="review-header-actions">
+        <button class="btn btn-outline" onclick="goMenu()">返回菜单</button>
+        <button class="btn btn-outline" onclick="window.location.href='dashboard.html'">返回首页</button>
+      </div>
+    </div>
+
+    <div class="card review-summary-card">
+      <div class="card-body">
+        <div class="review-summary-grid">
+          <div class="review-stat">评价总数<strong id="reviewCount">-</strong></div>
+          <div class="review-stat">菜品均分<strong id="dishAvg">-</strong></div>
+          <div class="review-stat">配送均分<strong id="deliveryAvg">-</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="reviewList" class="loading"><div class="spinner"></div><p>正在加载评价...</p></div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    const merchantId = new URLSearchParams(window.location.search).get('merchant_id');
+    let merchantName = '';
+
+    function safeText(value) {
+      return String(value ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+    function maskName(name) {
+      const text = String(name || '匿名用户').trim();
+      if (text.length <= 1) return text || '匿名用户';
+      return text.charAt(0) + '*'.repeat(Math.min(text.length - 1, 2));
+    }
+    function renderStars(score) {
+      const value = Math.max(0, Math.min(5, Math.round(Number(score) || 0)));
+      return '★'.repeat(value) + '☆'.repeat(5 - value);
+    }
+    function formatDate(value) {
+      return value ? new Date(value).toLocaleString() : '-';
+    }
+    function reviewTypeText(type) {
+      return Number(type) === 2 ? '投诉评价' : '普通评价';
+    }
+
+    async function loadMerchantInfo() {
+      const res = await api.get(`/user/merchants/${merchantId}`);
+      if (res.code === 200 && res.data) {
+        merchantName = res.data.shop_name || '';
+        document.getElementById('pageTitle').textContent = `⭐ ${merchantName} - 历史订单评价展示`;
+      }
+    }
+
+    async function loadReviews() {
+      const list = document.getElementById('reviewList');
+      if (!merchantId) {
+        list.className = 'empty-state';
+        list.innerHTML = '<div class="empty-icon">⚠️</div><p>缺少商家信息</p>';
+        return;
+      }
+      const res = await api.get(`/user/merchants/${merchantId}/reviews`);
+      list.className = '';
+      if (res.code !== 200) {
+        list.className = 'empty-state';
+        list.innerHTML = `<div class="empty-icon">⚠️</div><p>${safeText(res.message || '评价加载失败')}</p>`;
+        return;
+      }
+      const summary = res.data && res.data.summary ? res.data.summary : {};
+      const reviews = res.data && Array.isArray(res.data.reviews) ? res.data.reviews : [];
+      document.getElementById('reviewCount').textContent = Number(summary.review_count || reviews.length || 0);
+      document.getElementById('dishAvg').textContent = summary.avg_dish_score ? Number(summary.avg_dish_score).toFixed(1) : '-';
+      document.getElementById('deliveryAvg').textContent = summary.avg_delivery_score ? Number(summary.avg_delivery_score).toFixed(1) : '-';
+      if (!reviews.length) {
+        list.className = 'empty-state';
+        list.innerHTML = '<div class="empty-icon">⭐</div><p>暂无历史订单评价</p>';
+        return;
+      }
+      list.innerHTML = reviews.map(r => `
+        <div class="card review-item-card">
+          <div class="card-body">
+            <div class="review-meta">
+              <span>${safeText(maskName(r.user_name))} · 订单 ${r.order_id || '-'}</span>
+              <span>${safeText(formatDate(r.review_time))}</span>
+            </div>
+            <div style="margin-top:10px">
+              <span class="review-stars">${renderStars(r.dish_score)}</span>
+              <span class="text-muted">菜品 ${Number(r.dish_score || 0).toFixed(1)} · 配送 ${Number(r.delivery_score || 0).toFixed(1)}</span>
+              <span class="badge ${Number(r.review_type) === 2 ? 'badge-danger' : 'badge-primary'}" style="margin-left:8px">${reviewTypeText(r.review_type)}</span>
+            </div>
+            <div class="review-dishes"><strong>订单菜品：</strong>${safeText(r.dish_summary || '暂无菜品信息')}</div>
+            <p class="mt-10">${safeText(r.content || '用户未填写文字评价')}</p>
+            ${r.merchant_reply ? `<div class="merchant-reply"><small class="text-muted">商家回复：</small>${safeText(r.merchant_reply)}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function goMenu() {
+      window.location.href = merchantId ? `cart.html?merchant_id=${merchantId}` : 'dashboard.html';
+    }
+    async function loadUserInfo() {
+      const u = await checkRole('user');
+      if (u) document.getElementById('userInfo').textContent = '👤 ' + u.username;
+    }
+    async function doLogout(){ await auth.logout('user'); window.location.href='../../index.html'; }
+
+    loadUserInfo();
+    if (merchantId) loadMerchantInfo();
+    loadReviews();
+  </script>
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的订单 - 外卖订餐管理系统</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    .order-card { transition: box-shadow .2s ease, transform .2s ease; }
+    .order-card:hover { box-shadow: 0 10px 24px rgba(15, 23, 42, .10); transform: translateY(-1px); }
+    .order-card.active { border: 1px solid rgba(37, 99, 235, .28); box-shadow: 0 12px 28px rgba(37, 99, 235, .12); }
+    .order-hint { font-size: .8rem; margin-left: 8px; }
+    .flow-inline { margin-top: 14px; padding: 14px; border-radius: 14px; background: linear-gradient(180deg, #f8fafc, #ffffff); border: 1px solid #e5e7eb; cursor: default; }
+    .flow-inline.hidden { display: none; }
+    .flow-toolbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 12px; }
+    .flow-title { font-weight: 700; color: #111827; }
+    .flow-subtitle { color: #6b7280; font-size: .86rem; margin-top: 4px; }
+    .flow-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .flow-chip { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; font-size: .9rem; }
+    .flow-chip strong { color: #374151; }
+    .scroll-timeline { position: relative; display: flex; gap: 0; overflow-x: auto; padding: 22px 6px 8px; scroll-snap-type: x proximity; }
+    .scroll-timeline::before { content: ''; position: absolute; top: 35px; left: 24px; right: 24px; height: 4px; border-radius: 999px; background: #e5e7eb; }
+    .flow-node { position: relative; z-index: 1; flex: 0 0 150px; min-width: 150px; text-align: center; scroll-snap-align: start; }
+    .flow-dot { width: 22px; height: 22px; margin: 2px auto 10px; border-radius: 50%; background: #d1d5db; border: 4px solid #fff; box-shadow: 0 0 0 2px #d1d5db; }
+    .flow-node.completed .flow-dot { background: #22c55e; box-shadow: 0 0 0 2px #22c55e; }
+    .flow-node.current .flow-dot { background: #2563eb; box-shadow: 0 0 0 5px rgba(37, 99, 235, .20); }
+    .flow-node.pending { opacity: .72; }
+    .flow-node-title { font-weight: 700; font-size: .93rem; color: #111827; }
+    .flow-node-desc { color: #64748b; font-size: .8rem; line-height: 1.45; margin-top: 5px; min-height: 34px; }
+    .flow-node-time { color: #6b7280; font-size: .78rem; margin-top: 6px; }
+  .flow-current { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+    .flow-loading { padding: 16px; text-align: center; color: #64748b; }
+    .order-query-card { margin-bottom: 16px; }
+    .order-query-card .card-body { padding: 14px 16px; }
+    .order-query-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:flex-end; }
+    .order-query-toolbar .form-control { width:auto; min-width:135px; }
+    @media (max-width: 900px) {
+      .flow-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .flow-node { flex-basis: 132px; min-width: 132px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🍱 外卖订餐</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="orders.html" class="active">我的订单</a></li>
+      <li><a href="reviews.html">我的评价</a></li>
+      <li><a href="wallet.html">我的钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h2>📋 我的订单</h2>
+        <div class="text-muted" style="font-size:.9rem;margin-top:4px">支持按订单号/商家/菜品、订单状态、支付状态和下单时间查询。</div>
+      </div>
+    </div>
+    <div class="card order-query-card">
+      <div class="card-body">
+        <div class="order-query-toolbar">
+          <input type="text" class="form-control" id="orderKeyword" placeholder="订单号/商家/菜品" onkeydown="if(event.key==='Enter') loadOrders()">
+          <select class="form-control" id="orderStatusFilter">
+            <option value="">全部订单状态</option>
+            <option value="0">待支付</option>
+            <option value="1">待接单</option>
+            <option value="2">备餐中</option>
+            <option value="3">已出餐</option>
+            <option value="4">配送中</option>
+            <option value="5">已完成</option>
+            <option value="6">已取消</option>
+            <option value="7">异常</option>
+          </select>
+          <select class="form-control" id="payStatusFilter">
+            <option value="">全部支付状态</option>
+            <option value="0">未支付</option>
+            <option value="1">支付成功</option>
+            <option value="2">支付失败</option>
+            <option value="3">已退款</option>
+          </select>
+          <input type="date" class="form-control" id="startDate">
+          <input type="date" class="form-control" id="endDate">
+          <button class="btn btn-primary" onclick="loadOrders()">查询</button>
+          <button class="btn btn-outline" onclick="resetOrderQuery()">重置</button>
+        </div>
+      </div>
+    </div>
+    <div id="orderList" class="loading"><div class="spinner"></div><p>加载中...</p></div>
+  </div>
+
+  <div id="payModal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:460px">
+      <div class="modal-header">
+        <h3>💳 订单支付</h3>
+        <button class="modal-close" onclick="closePayModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="payOrderId">
+        <p><strong>订单号：</strong><span id="payOrderNo"></span></p>
+        <p><strong>支付金额：</strong><span class="text-primary" id="payAmount" style="font-weight:700"></span></p>
+        <div class="form-group">
+          <label>支付方式</label>
+          <select class="form-control" id="payMethod">
+            <option value="wechat">微信支付</option>
+            <option value="alipay">支付宝</option>
+            <option value="bank_card">银行卡</option>
+            <option value="cash">货到付款</option>
+            <option value="wallet">我的钱包</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>支付密码</label>
+          <input type="password" class="form-control" id="payPassword" placeholder="请输入支付密码" autocomplete="new-password">
+          <small class="text-muted">新用户为注册时设置的支付密码；老用户默认与登录密码一致。</small>
+        </div>
+        <div class="flex gap-10 mt-20">
+          <button class="btn btn-primary" onclick="submitPayment(1)">确认支付</button>
+          <button class="btn btn-outline" onclick="submitPayment(2)">模拟支付失败</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    let expandedOrderId = null;
+
+    async function loadOrders() {
+      const container = document.getElementById('orderList');
+      try {
+        const params = {
+          keyword: document.getElementById('orderKeyword').value.trim(),
+          order_status: document.getElementById('orderStatusFilter').value,
+          pay_status: document.getElementById('payStatusFilter').value,
+          start_date: document.getElementById('startDate').value,
+          end_date: document.getElementById('endDate').value
+        };
+        const res = await api.get('/user/orders', params);
+        container.className = '';
+        if (res.code !== 200) {
+          container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${res.message || '订单加载失败'}</p></div>`;
+          return;
+        }
+        if (!res.data || res.data.length === 0) {
+          container.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>没有符合条件的订单</p></div>';
+          return;
+        }
+        container.innerHTML = res.data.map(renderOrderCard).join('');
+        if (expandedOrderId && document.getElementById(`flowPanel-${expandedOrderId}`)) {
+          showFlowPanel(expandedOrderId);
+          await loadOrderFlow(expandedOrderId, true);
+        }
+      } catch (e) {
+        container.className = '';
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><p>订单接口异常，请查看后端控制台报错</p></div>';
+      }
+    }
+
+    function resetOrderQuery() {
+      document.getElementById('orderKeyword').value = '';
+      document.getElementById('orderStatusFilter').value = '';
+      document.getElementById('payStatusFilter').value = '';
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value = '';
+      loadOrders();
+    }
+
+    function renderOrderCard(o) {
+      const active = expandedOrderId === o.order_id ? ' active' : '';
+      const orderStatus = Number(o.order_status);
+      const afterSaleStatus = Number(o.after_sale_status || 0);
+      const orderReviewId = Number(o.order_review_id || 0);
+      return `
+        <div id="orderCard-${o.order_id}" class="card mb-10 order-card${active}" onclick="toggleOrderFlow(${o.order_id})" style="cursor:pointer">
+          <div class="card-body">
+            <div class="flex-between">
+              <div>
+                <strong>${o.shop_name}</strong>
+                <span class="text-muted" style="font-size:0.85rem"> | 订单号: ${o.order_id}</span>
+                <span class="text-muted order-hint">左键展开/隐藏，右键刷新进度</span>
+              </div>
+              <div>${orderStatusLabel(orderStatus)}</div>
+            </div>
+            <div class="flex-between mt-10">
+              <span class="text-muted">${new Date(o.create_time).toLocaleString()}</span>
+              <span class="text-primary" style="font-weight:600">\u00a5${o.order_amount}</span>
+            </div>
+            <div class="flex-between mt-10">
+              <span>${payStatusLabel(o.pay_status)} <span class="text-muted" style="margin-left:8px">${payMethodLabel(o.pay_method)}</span></span>
+              <div class="flex gap-10">
+                ${orderStatus === 0 ? `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();openPayModal(${o.order_id}, '${o.order_amount}')">去支付</button>` : ''}
+                ${(orderStatus === 0 || orderStatus === 1) ? `<button class="btn btn-sm btn-warning" onclick="event.stopPropagation();cancelOrder(${o.order_id})">取消</button>` : ''}
+                ${orderStatus === 5 && afterSaleStatus === 0 ? (orderReviewId ? `<button class="btn btn-sm btn-outline" disabled>已评价</button>` : `<button class="btn btn-sm btn-outline" onclick="event.stopPropagation();window.location.href='reviews.html?order_id=${o.order_id}'">去评价</button>`) : ''}
+                ${(orderStatus === 5 || orderStatus === 6) && afterSaleStatus === 0 ? `<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteOrder(${o.order_id})">删除</button>` : ''}
+              </div>
+            </div>
+            <div class="mt-10 text-muted" style="font-size:0.9rem">
+              ${o.dish_summary ? `菜品：${o.dish_summary}　` : ''}餐具：${o.tableware_count || 1} 份
+            </div>
+            <div id="flowPanel-${o.order_id}" class="flow-inline hidden" onclick="event.stopPropagation()"></div>
+          </div>
+        </div>`;
+    }
+
+    function openPayModal(orderId, amount) {
+      document.getElementById('payOrderId').value = orderId;
+      document.getElementById('payOrderNo').textContent = orderId;
+      document.getElementById('payAmount').textContent = `\u00a5${amount}`;
+      document.getElementById('payPassword').value = '';
+      document.getElementById('payModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('payPassword').focus(), 0);
+    }
+
+    function closePayModal() {
+      document.getElementById('payModal').classList.add('hidden');
+      document.getElementById('payPassword').value = '';
+    }
+
+    async function submitPayment(payStatus) {
+      const orderId = document.getElementById('payOrderId').value;
+      const payMethod = document.getElementById('payMethod').value;
+      const payPassword = document.getElementById('payPassword').value;
+      if (payStatus === 1 && !payPassword) {
+        showToast('请输入支付密码', 'warning');
+        document.getElementById('payPassword').focus();
+        return;
+      }
+      const res = await api.put(`/user/orders/${orderId}/pay`, {
+        pay_method: payMethod,
+        pay_status: payStatus,
+        pay_password: payPassword
+      });
+      if(res.code===200){
+        showToast(payStatus === 1 ? '支付成功' : '已记录支付失败', payStatus === 1 ? 'success' : 'warning');
+        closePayModal();
+        expandedOrderId = Number(orderId);
+        loadOrders();
+      } else {
+        showToast(res.message,'error');
+      }
+    }
+
+    async function cancelOrder(orderId) {
+      if(!confirm('确认取消此订单？')) return;
+      const res = await api.put(`/user/orders/${orderId}/cancel`);
+      if(res.code===200){showToast('已取消'); expandedOrderId = orderId; loadOrders();}
+      else showToast(res.message,'error');
+    }
+
+    async function deleteOrder(orderId) {
+      if(!confirm('确认删除此订单？')) return;
+      const res = await api.del(`/user/orders/${orderId}`);
+      if(res.code===200){showToast('已删除'); if (expandedOrderId === orderId) expandedOrderId = null; loadOrders();}
+      else showToast(res.message,'error');
+    }
+
+    function toggleOrderFlow(orderId) {
+      const panel = document.getElementById(`flowPanel-${orderId}`);
+      if (!panel) return;
+      if (expandedOrderId === orderId && !panel.classList.contains('hidden')) {
+        hideFlowPanel(orderId);
+        expandedOrderId = null;
+        return;
+      }
+      if (expandedOrderId && expandedOrderId !== orderId) hideFlowPanel(expandedOrderId);
+      expandedOrderId = orderId;
+      showFlowPanel(orderId);
+      loadOrderFlow(orderId, false);
+    }
+
+    function showFlowPanel(orderId) {
+      const card = document.getElementById(`orderCard-${orderId}`);
+      const panel = document.getElementById(`flowPanel-${orderId}`);
+      if (card) card.classList.add('active');
+      if (panel) panel.classList.remove('hidden');
+    }
+
+    function hideFlowPanel(orderId) {
+      const card = document.getElementById(`orderCard-${orderId}`);
+      const panel = document.getElementById(`flowPanel-${orderId}`);
+      if (card) card.classList.remove('active');
+      if (panel) panel.classList.add('hidden');
+    }
+
+    async function refreshOrderFlowInline(orderId, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (expandedOrderId && expandedOrderId !== orderId) hideFlowPanel(expandedOrderId);
+      expandedOrderId = orderId;
+      showFlowPanel(orderId);
+      await loadOrderFlow(orderId, true);
+      showToast('订单进度已刷新', 'success');
+      return false;
+    }
+
+    async function loadOrderFlow(orderId, keepOpen) {
+      const panel = document.getElementById(`flowPanel-${orderId}`);
+      if (!panel) return;
+      if (!keepOpen || !panel.innerHTML.trim()) {
+        panel.innerHTML = '<div class="flow-loading"><div class="spinner"></div><p>正在读取订单进度...</p></div>';
+      }
+      const res = await api.get(`/user/orders/${orderId}/status`);
+      if (res.code !== 200) {
+        panel.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><p>${res.message || '订单进度加载失败'}</p></div>`;
+        return;
+      }
+      renderOrderFlowInline(orderId, res.data);
+    }
+
+    function formatFlowTime(value) {
+      return value ? new Date(value).toLocaleString() : '待完成';
+    }
+
+    function flowNodeClass(step) {
+      if (step.current) return 'flow-node current';
+      if (step.completed) return 'flow-node completed';
+      return 'flow-node pending';
+    }
+
+    function renderOrderFlowInline(orderId, o) {
+      const panel = document.getElementById(`flowPanel-${orderId}`);
+      const steps = o.flow_steps || [];
+      const rider = o.rider;
+      panel.innerHTML = `
+        <div class="flow-toolbar">
+          <div>
+            <div class="flow-title">📜 订单进度画轴</div>
+            <div class="flow-subtitle">数据来自后端真实时间字段；右键本区域可刷新，左键订单卡片可隐藏。</div>
+          </div>
+          <div class="flex gap-10">
+            <button class="btn btn-sm btn-primary" onclick="refreshOrderFlowInline(${orderId}, event)">刷新进度</button>
+            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();window.location.href='order_detail.html?order_id=${orderId}'">详情</button>
+          </div>
+        </div>
+        <div class="flow-summary">
+          <div class="flow-chip"><strong>当前：</strong>${o.current_step ? o.current_step.label : (o.order_status_label || orderStatusLabel(o.order_status))}</div>
+          <div class="flow-chip"><strong>支付：</strong>${o.pay_status_label || payStatusLabel(o.pay_status)} / ${o.pay_method_label || payMethodLabel(o.pay_method)}</div>
+          <div class="flow-chip"><strong>商家：</strong>${o.shop_name || '-'}</div>
+          <div class="flow-chip"><strong>\u914d\u9001\u5458\uff1a</strong>${rider ? `${rider.rider_name || '-'}${rider.rider_phone ? '\uff08' + rider.rider_phone + '\uff09' : ''}` : '\u6682\u672a\u63a5\u5355'}</div>
+        </div>
+        <div class="scroll-timeline">
+          ${steps.map(step => `
+            <div class="${flowNodeClass(step)}">
+              <div class="flow-dot"></div>
+              <div class="flow-node-title">${step.label}</div>
+              <div class="flow-node-desc">${step.description || ''}</div>
+              <div class="flow-node-time">${formatFlowTime(step.occurred_at)}${step.actor_name ? '<br>' + step.actor_name : ''}</div>
+            </div>
+          `).join('')}
+        </div>
+        ${o.current_step ? `<div class="flow-current">当前进度：${o.current_step.label}${o.current_step.completed ? '' : '（等待处理）'}</div>` : ''}
+      `;
+    }
+
+    function viewOrder(orderId) { window.location.href=`order_detail.html?order_id=${orderId}`; }
+
+    async function loadUserInfo() {
+      const u = await checkRole('user');
+      if (u) document.getElementById('userInfo').textContent = '👤 ' + u.username;
+    }
+
+    async function doLogout() {
+      await auth.logout('user');
+      window.location.href = '../../index.html';
+    }
+
+    loadUserInfo(); loadOrders();
+  </script>
+</body>
+</html>

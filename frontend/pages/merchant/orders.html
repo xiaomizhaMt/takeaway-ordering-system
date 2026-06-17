@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>订单管理 - 商家后台</title><link rel="stylesheet" href="../../css/style.css"></head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🏪 商家后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="dishes.html">菜品管理</a></li>
+      <li><a href="orders.html" class="active">订单管理</a></li>
+      <li><a href="reviews.html">评价管理</a></li>
+      <li><a href="statistics.html">经营统计</a></li>
+      <li><a href="wallet.html">钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+  <div class="container">
+    <div class="page-header"><h2>📋 订单管理</h2>
+      <div class="flex gap-10">
+        <input type="text" class="form-control" id="orderKeyword" placeholder="订单号/用户/菜品" style="width:180px" onkeydown="if(event.key==='Enter') loadOrders()">
+        <select class="form-control" id="statusFilter" style="width:150px" onchange="loadOrders()">
+          <option value="">全部订单</option>
+          <option value="0">待支付</option>
+          <option value="1">待接单</option>
+          <option value="2">备餐中</option>
+          <option value="3">已出餐</option>
+          <option value="4">配送中</option>
+          <option value="5">已完成</option>
+          <option value="6">已取消</option>
+          <option value="7">异常</option>
+        </select>
+        <input type="date" class="form-control" id="startDate" onchange="loadOrders()">
+        <input type="date" class="form-control" id="endDate" onchange="loadOrders()">
+        <button class="btn btn-primary" onclick="loadOrders()">查询</button>
+        <button class="btn btn-outline" onclick="resetOrderQuery()">重置</button>
+      </div>
+    </div>
+    <div id="orderList" class="loading"><div class="spinner"></div></div>
+  </div>
+
+  <div id="orderItemsModal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width:760px">
+      <div class="modal-header"><h3 id="orderItemsTitle">订单明细</h3><button class="modal-close" onclick="closeItemsModal()">&times;</button></div>
+      <div id="orderItemsBody" class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    async function loadOrders(){
+      const status = document.getElementById('statusFilter').value;
+      const params = {
+        status,
+        keyword: document.getElementById('orderKeyword').value.trim(),
+        start_date: document.getElementById('startDate').value,
+        end_date: document.getElementById('endDate').value
+      };
+      const res = await api.get('/merchant/orders', params);
+      if(res.code!==200)return;
+      const cont=document.getElementById('orderList');
+      if(!res.data||res.data.length===0){cont.innerHTML='<div class="empty-state"><div class="empty-icon">📦</div><p>暂无订单</p></div>';return;}
+      cont.innerHTML=`<div class="table-container"><table><tr><th>订单号</th><th>用户</th><th>菜品</th><th>金额</th><th>餐具</th><th>状态</th><th>时间</th><th>操作</th></tr>${res.data.map(o=>{ const s = normalizedOrderStatus(o); return `<tr><td>${o.order_id}</td><td>${o.user_name}<br><small class="text-muted">${o.user_phone}</small></td><td><small>${o.dish_summary || '-'}</small></td><td>¥${o.order_amount}</td><td>${o.tableware_count || 1} 份</td><td>${orderStatusLabel(s)}</td><td>${new Date(o.create_time).toLocaleString()}</td><td>${getOrderActions({...o, order_status:s})}</td></tr>`; }).join('')}</table></div>`;
+    }
+    function getOrderActions(o){
+      let actions='';
+      actions+=`<button class="btn btn-sm btn-outline" onclick="showOrderItems(${o.order_id})">明细</button> `;
+      if(o.order_status===1) actions+=`<button class="btn btn-sm btn-success" onclick="acceptOrder(${o.order_id})">接单</button> `;
+      if(o.order_status===2) actions+=`<button class="btn btn-sm btn-info" onclick="mealReady(${o.order_id})">出餐</button> `;
+      if(o.order_status===1) actions+=`<button class="btn btn-sm btn-danger" onclick="rejectOrder(${o.order_id})">拒单</button>`;
+      return actions||'<span class="text-muted">-</span>';
+    }
+    function normalizedOrderStatus(o) {
+      const status = Number(o.order_status);
+      return status === 4 && o.finish_time ? 5 : status;
+    }
+    function resetOrderQuery(){
+      document.getElementById('orderKeyword').value='';
+      document.getElementById('statusFilter').value='';
+      document.getElementById('startDate').value='';
+      document.getElementById('endDate').value='';
+      loadOrders();
+    }
+    function closeItemsModal(){document.getElementById('orderItemsModal').classList.add('hidden');}
+    async function showOrderItems(orderId){
+      document.getElementById('orderItemsTitle').textContent=`订单 ${orderId} 菜品明细`;
+      document.getElementById('orderItemsBody').innerHTML='<div class="loading"><div class="spinner"></div><p>正在查询订单明细...</p></div>';
+      document.getElementById('orderItemsModal').classList.remove('hidden');
+      const res=await api.get(`/merchant/core/orders/${orderId}/items`);
+      if(res.code!==200){document.getElementById('orderItemsBody').innerHTML=`<div class="empty-state"><p>${res.message}</p></div>`;return;}
+      const items=res.data||[];
+      document.getElementById('orderItemsBody').innerHTML=items.length===0?'<div class="empty-state"><p>暂无明细</p></div>':
+        `<div class="table-container"><table><tr><th>明细ID</th><th>菜品</th><th>规格</th><th>数量</th><th>单价</th><th>小计</th></tr>${items.map(i=>`<tr><td>${i.order_item_id}</td><td>${i.dish_name}</td><td>${i.specification||'-'}</td><td>${i.quantity}</td><td>¥${i.unit_price}</td><td>¥${i.subtotal}</td></tr>`).join('')}</table></div>`;
+    }
+    async function acceptOrder(id){const r=await api.put(`/merchant/orders/${id}/accept`);if(r.code===200){showToast('已接单');loadOrders();}else showToast(r.message,'error');}
+    async function rejectOrder(id){if(!confirm('确认拒单？'))return;const r=await api.put(`/merchant/orders/${id}/reject`);if(r.code===200){showToast('已拒单');loadOrders();}else showToast(r.message,'error');}
+    async function mealReady(id){const r=await api.put(`/merchant/orders/${id}/ready`);if(r.code===200){showToast('已出餐');loadOrders();}else showToast(r.message,'error');}
+    async function loadUserInfo(){const u=await checkRole('merchant');if(u)document.getElementById('userInfo').textContent='🏪 '+u.username;}
+    async function doLogout(){await auth.logout('merchant');window.location.href='../../index.html';}
+    loadUserInfo();loadOrders();
+  </script>
+</body>
+</html>

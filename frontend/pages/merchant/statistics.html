@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>经营统计 - 商家后台</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    .chart-card-body { padding: 20px 24px 28px; }
+    .chart-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 8px 0;
+    }
+    .chart-svg {
+      min-width: 760px;
+      width: 100%;
+      height: 340px;
+      display: block;
+    }
+    .chart-subtitle {
+      color: var(--dark-gray);
+      font-size: 0.88rem;
+      margin-bottom: 8px;
+    }
+    .chart-line {
+      fill: none;
+      stroke: var(--primary);
+      stroke-width: 3;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+    }
+    .chart-area {
+      fill: rgba(255, 107, 53, 0.12);
+    }
+    .chart-point {
+      fill: #fff;
+      stroke: var(--primary);
+      stroke-width: 3;
+      cursor: pointer;
+    }
+    .chart-point:hover {
+      fill: var(--primary);
+    }
+    .chart-grid {
+      stroke: #e5e7eb;
+      stroke-width: 1;
+    }
+    .chart-axis {
+      stroke: #cbd5e1;
+      stroke-width: 1.4;
+    }
+    .chart-label {
+      fill: #64748b;
+      font-size: 12px;
+    }
+    .chart-bar {
+      fill: var(--primary);
+      rx: 8;
+      cursor: pointer;
+      transition: opacity .15s ease;
+    }
+    .chart-bar:hover {
+      opacity: .78;
+    }
+    .chart-value {
+      fill: #334155;
+      font-size: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🏪 商家后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="dishes.html">菜品管理</a></li>
+      <li><a href="orders.html">订单管理</a></li>
+      <li><a href="reviews.html">评价管理</a></li>
+      <li><a href="statistics.html" class="active">经营统计</a></li>
+      <li><a href="wallet.html">钱包</a></li>
+    </ul>
+    <div class="navbar-right">
+      <span class="user-info" id="userInfo"></span>
+      <a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h2>📊 经营统计</h2>
+        <div class="text-muted" style="font-size:.9rem;margin-top:4px">支持按日期范围查询订单营收和菜品销售情况，图表悬停可查看明细。</div>
+      </div>
+      <div class="flex gap-10">
+        <input type="date" class="form-control" id="startDate" onchange="loadStats()">
+        <input type="date" class="form-control" id="endDate" onchange="loadStats()">
+        <button class="btn btn-primary" onclick="loadStats()">查询</button>
+        <button class="btn btn-outline" onclick="resetStatsQuery()">重置</button>
+      </div>
+    </div>
+
+    <div class="card mb-20">
+      <div class="card-header">汇总数据</div>
+      <div id="summaryCards" class="card-body grid grid-3"></div>
+    </div>
+    <div class="card mb-20">
+      <div class="card-header">营收趋势</div>
+      <div id="trendBody" class="loading"><div class="spinner"></div><p>加载中...</p></div>
+    </div>
+    <div class="card">
+      <div class="card-header">菜品销售排行榜（前十）</div>
+      <div id="dishRanking" class="loading"><div class="spinner"></div><p>加载中...</p></div>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    function money(v) {
+      return Number(v || 0).toFixed(2);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function dateTime(value) {
+      const t = new Date(value).getTime();
+      return Number.isFinite(t) ? t : 0;
+    }
+
+    function shortDate(value) {
+      const s = String(value || '');
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(5, 10);
+      const t = new Date(s);
+      if (!Number.isNaN(t.getTime())) {
+        return `${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+      }
+      return s.slice(0, 10) || '-';
+    }
+
+    function fullDate(value) {
+      const s = String(value || '');
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      const t = new Date(s);
+      if (!Number.isNaN(t.getTime())) return t.toLocaleDateString();
+      return s || '-';
+    }
+
+    function truncateText(value, maxLen = 10) {
+      const s = String(value || '');
+      return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
+    }
+
+    function renderRevenueLineChart(dailyRows) {
+      const rows = [...dailyRows].sort((a, b) => dateTime(a.date) - dateTime(b.date));
+      if (rows.length === 0) {
+        return '<div class="text-muted text-center" style="padding:30px">暂无数据</div>';
+      }
+
+      const width = 960;
+      const height = 330;
+      const margin = { top: 30, right: 44, bottom: 58, left: 68 };
+      const plotW = width - margin.left - margin.right;
+      const plotH = height - margin.top - margin.bottom;
+      const maxRevenue = Math.max(...rows.map(r => Number(r.total_revenue || 0)), 1);
+      const x = i => margin.left + (rows.length === 1 ? plotW / 2 : (plotW * i / (rows.length - 1)));
+      const y = v => margin.top + plotH - (Number(v || 0) / maxRevenue) * plotH;
+      const points = rows.map((r, i) => `${x(i)},${y(r.total_revenue)}`).join(' ');
+      const areaPath = `M ${margin.left},${margin.top + plotH} L ${points} L ${margin.left + plotW},${margin.top + plotH} Z`;
+      const gridLines = Array.from({ length: 5 }, (_, i) => {
+        const value = maxRevenue * (4 - i) / 4;
+        const gy = margin.top + plotH * i / 4;
+        return `
+          <line class="chart-grid" x1="${margin.left}" y1="${gy}" x2="${margin.left + plotW}" y2="${gy}"></line>
+          <text class="chart-label" x="${margin.left - 10}" y="${gy + 4}" text-anchor="end">¥${money(value)}</text>`;
+      }).join('');
+
+      const pointNodes = rows.map((r, i) => {
+        const detail = `日期：${fullDate(r.date)}\n订单数：${r.order_count || 0}\n营收：¥${money(r.total_revenue)}\n配送费：¥${money(r.total_delivery_fee)}`;
+        return `
+          <g>
+            <circle class="chart-point" cx="${x(i)}" cy="${y(r.total_revenue)}" r="6">
+              <title>${escapeHtml(detail)}</title>
+            </circle>
+            <text class="chart-label" x="${x(i)}" y="${margin.top + plotH + 24}" text-anchor="middle">${escapeHtml(shortDate(r.date))}</text>
+          </g>`;
+      }).join('');
+
+      return `
+        <div class="chart-card-body">
+          <div class="chart-subtitle">折线表示每日营收，悬停节点可查看订单数、营收和配送费。</div>
+          <div class="chart-wrap">
+            <svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="营收趋势折线图">
+              ${gridLines}
+              <line class="chart-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + plotH}"></line>
+              <line class="chart-axis" x1="${margin.left}" y1="${margin.top + plotH}" x2="${margin.left + plotW}" y2="${margin.top + plotH}"></line>
+              <path class="chart-area" d="${areaPath}"></path>
+              <polyline class="chart-line" points="${points}"></polyline>
+              ${pointNodes}
+              <text class="chart-label" x="${margin.left}" y="18">金额（元）</text>
+            </svg>
+          </div>
+        </div>`;
+    }
+
+    function renderDishBarChart(dishRows) {
+      const rows = [...dishRows]
+        .sort((a, b) => Number(b.order_revenue || 0) - Number(a.order_revenue || 0))
+        .slice(0, 10);
+      if (rows.length === 0) {
+        return '<div class="text-muted text-center" style="padding:30px">暂无数据</div>';
+      }
+
+      const width = 960;
+      const rowH = 34;
+      const height = 72 + rows.length * rowH;
+      const margin = { top: 34, right: 120, bottom: 26, left: 170 };
+      const plotW = width - margin.left - margin.right;
+      const maxRevenue = Math.max(...rows.map(r => Number(r.order_revenue || 0)), 1);
+
+      const bars = rows.map((r, i) => {
+        const y = margin.top + i * rowH;
+        const barW = Math.max((Number(r.order_revenue || 0) / maxRevenue) * plotW, Number(r.order_revenue || 0) > 0 ? 4 : 0);
+        const detail = `排名：第 ${i + 1} 名\n菜品：${r.dish_name || ''}\n分类：${r.category_name || '-'}\n订单销量：${r.order_quantity || 0}\n总销量：${r.sales_count || 0}\n销售额：¥${money(r.order_revenue)}`;
+        return `
+          <g>
+            <text class="chart-label" x="${margin.left - 12}" y="${y + 22}" text-anchor="end">#${i + 1} ${escapeHtml(truncateText(r.dish_name || '', 12))}</text>
+            <rect class="chart-bar" x="${margin.left}" y="${y + 7}" width="${barW}" height="20" rx="8">
+              <title>${escapeHtml(detail)}</title>
+            </rect>
+            <text class="chart-value" x="${margin.left + barW + 10}" y="${y + 22}">¥${money(r.order_revenue)} / ${r.order_quantity || 0}份</text>
+          </g>`;
+      }).join('');
+
+      return `
+        <div class="chart-card-body">
+          <div class="chart-subtitle">按销售额展示前 10 个菜品，悬停柱子可查看分类、销量和销售额。</div>
+          <div class="chart-wrap">
+            <svg class="chart-svg" style="height:${height}px" viewBox="0 0 ${width} ${height}" role="img" aria-label="菜品销售前十柱状图">
+              <line class="chart-axis" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}"></line>
+              ${bars}
+            </svg>
+          </div>
+        </div>`;
+    }
+
+    async function loadStats() {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      const summaryEl = document.getElementById('summaryCards');
+      const trendEl = document.getElementById('trendBody');
+      const dishEl = document.getElementById('dishRanking');
+
+      summaryEl.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
+      trendEl.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
+      dishEl.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
+
+      try {
+        const [orderRes, dishRes] = await Promise.all([
+          api.get('/merchant/statistics/orders', { start_date: startDate, end_date: endDate }),
+          api.get('/merchant/statistics/dishes', { start_date: startDate, end_date: endDate })
+        ]);
+
+        if (orderRes.code !== 200) {
+          summaryEl.innerHTML = `<div class="text-muted text-center" style="padding:30px">${orderRes.message || '暂无数据'}</div>`;
+          trendEl.innerHTML = `<div class="text-muted text-center" style="padding:30px">${orderRes.message || '暂无数据'}</div>`;
+        } else {
+          const s = orderRes.data && orderRes.data.summary ? orderRes.data.summary : {};
+          const totalRevenue = Number(s.total_revenue || 0);
+          const totalOrders = Number(s.total_orders || 0);
+          summaryEl.innerHTML = `
+            <div class="stat-card"><div class="stat-number">${totalOrders}</div><div class="stat-label">总订单数</div></div>
+            <div class="stat-card"><div class="stat-number">¥${money(totalRevenue)}</div><div class="stat-label">总营收</div></div>
+            <div class="stat-card"><div class="stat-number">¥${money(totalOrders ? totalRevenue / totalOrders : 0)}</div><div class="stat-label">客单价</div></div>`;
+
+          const daily = Array.isArray(orderRes.data.daily) ? orderRes.data.daily : [];
+          trendEl.innerHTML = renderRevenueLineChart(daily);
+        }
+
+        if (dishRes.code === 200) {
+          const rows = Array.isArray(dishRes.data) ? dishRes.data : [];
+          dishEl.innerHTML = renderDishBarChart(rows);
+        } else {
+          dishEl.innerHTML = `<div class="text-muted text-center" style="padding:30px">${dishRes.message || '暂无数据'}</div>`;
+        }
+      } catch (e) {
+        summaryEl.innerHTML = '<div class="text-muted text-center" style="padding:30px">加载失败</div>';
+        trendEl.innerHTML = '<div class="text-muted text-center" style="padding:30px">加载失败</div>';
+        dishEl.innerHTML = '<div class="text-muted text-center" style="padding:30px">加载失败</div>';
+      }
+    }
+
+    function resetStatsQuery() {
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value = '';
+      loadStats();
+    }
+
+    async function loadUserInfo() {
+      const u = await checkRole('merchant');
+      if (u) document.getElementById('userInfo').textContent = '🏪 ' + u.username;
+    }
+
+    async function doLogout() {
+      await auth.logout('merchant');
+      window.location.href = '../../index.html';
+    }
+
+    loadUserInfo();
+    loadStats();
+  </script>
+</body>
+</html>

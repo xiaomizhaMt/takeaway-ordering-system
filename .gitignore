@@ -1,0 +1,29 @@
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
+
+# Browser/Playwright temporary logs and snapshots
+.playwright-cli/
+.codex_backups/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local secrets and environment overrides
+.env
+.env.*
+backend/config_local.py
+
+# Runtime logs
+flask_output.log
+
+# Runtime auth/cache files
+token.json
+login.json

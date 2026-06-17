@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>商家后台 - 外卖订餐管理系统</title>
+  <link rel="stylesheet" href="../../css/style.css">
+<style>
+    .user-avatar-btn { display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:2px 6px; border-radius:8px; transition:background .15s; }
+    .user-avatar-btn:hover { background:rgba(0,0,0,.06); }
+    .user-avatar-circle { width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:.9rem; font-weight:600; flex-shrink:0; }
+    .shop-image-editor { display:flex; align-items:center; gap:12px; }
+    .shop-image-preview { width:74px; height:74px; border-radius:12px; border:1px solid var(--border); background:var(--primary-light); display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:2rem; flex-shrink:0; }
+    .shop-image-preview img { width:100%; height:100%; object-fit:cover; display:block; }
+    .shop-image-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🏪 商家后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html" class="active">首页</a></li>
+      <li><a href="dishes.html">菜品管理</a></li>
+      <li><a href="orders.html">订单管理</a></li>
+      <li><a href="reviews.html">评价管理</a></li>
+      <li><a href="statistics.html">经营统计</a></li>
+      <li><a href="wallet.html">钱包</a></li>
+    </ul>
+    <div class="navbar-right"><div class="user-avatar-btn" onclick="showShopModal()"><span class="user-avatar-circle" id="userAvatar">?</span><span class="user-info" id="userInfo"></span><span style="font-size:.78rem;color:#888;margin-left:2px">店铺设置</span></div><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h2>📊 经营概览</h2>
+      
+    </div>
+    <div id="statsCards" class="grid grid-4"></div>
+    <div id="recentOrders" class="card mt-20">
+      <div class="card-header">最新订单</div>
+      <div id="recentOrdersBody" class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <div id="shopModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header"><h3>🏪 店铺信息</h3><button class="modal-close" onclick="closeShopModal()">&times;</button></div>
+      <div class="form-group"><label>店铺名称</label><input type="text" class="form-control" id="shopName"></div>
+      <div class="form-group">
+        <label>商家图片</label>
+        <div class="shop-image-editor">
+          <div class="shop-image-preview" id="shopImagePreview">🏪</div>
+          <div>
+            <input type="hidden" id="shopImageUrl">
+            <input type="file" id="shopImageFile" accept="image/*" class="hidden" onchange="uploadShopImage()">
+            <div class="shop-image-actions">
+              <button type="button" class="btn btn-sm btn-outline" onclick="chooseShopImage()">上传图片</button>
+              <button type="button" class="btn btn-sm btn-outline" onclick="clearShopImage()">使用默认图标</button>
+            </div>
+            <p class="text-muted" style="font-size:.82rem;margin-top:6px">未上传时用户端按商家类型显示默认图标。</p>
+          </div>
+        </div>
+      </div>
+      <div class="form-group"><label>商家类型</label>
+        <select class="form-control" id="shopMerchantType">
+          <option value="奶茶咖啡">奶茶咖啡</option>
+          <option value="汉堡快餐">汉堡快餐</option>
+          <option value="米粉汤面">米粉汤面</option>
+          <option value="烧烤小吃">烧烤小吃</option>
+          <option value="粥食甜品">粥食甜品</option>
+          <option value="热炒正餐">热炒正餐</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+      <div class="form-group"><label>联系人</label><input type="text" class="form-control" id="shopContact"></div>
+      <div class="form-group"><label>联系电话</label><input type="text" class="form-control" id="shopPhone"></div>
+      <div class="form-group">
+        <label>店铺地址</label>
+        <input type="text" class="form-control" id="shopAddress" placeholder="可手动输入地址，也可使用地图选点">
+        <input type="hidden" id="shopLatitude">
+        <input type="hidden" id="shopLongitude">
+        <input type="hidden" id="shopLocationName">
+        <button type="button" class="btn btn-sm btn-outline mt-10" id="shopMapBtn">地图选点</button>
+      </div>
+      <div class="form-group">
+        <label>营业时段</label>
+        <div style="display:grid;grid-template-columns:1fr;gap:8px">
+          <select class="form-control" id="shopOpenTime" onchange="syncBusinessHours()"></select>
+          <select class="form-control" id="shopCloseTime" onchange="syncBusinessHours()"></select>
+        </div>
+        <input type="hidden" id="shopHours">
+      </div>
+      <div class="form-group"><label>店铺简介</label><textarea class="form-control" id="shopDesc" rows="2"></textarea></div>
+      <div class="form-group"><label>营业状态</label>
+        <select class="form-control" id="shopStatus">
+          <option value="1">营业</option>
+          <option value="0">歇业</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveShop()">保存修改</button>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script src="../../js/map-config.js?v=20260516f"></script>
+  <script src="../../js/map-picker.js?v=20260517b"></script>
+  <script>
+    function money(value) {
+      return Number(value || 0).toFixed(2);
+    }
+
+    async function loadStats() {
+      const res = await api.get('/merchant/statistics/orders');
+      if(res.code !== 200) {
+        document.getElementById('statsCards').innerHTML = '<div class="empty-state"><p>经营数据加载失败</p></div>';
+        return;
+      }
+      const s = res.data.summary || {};
+      document.getElementById('statsCards').innerHTML = `
+        <div class="card"><div class="card-body stat-card"><div class="stat-icon">📦</div><div class="stat-number">${s.total_orders || 0}</div><div class="stat-label">总订单数</div></div></div>
+        <div class="card"><div class="card-body stat-card"><div class="stat-icon">💰</div><div class="stat-number">¥${money(s.total_revenue)}</div><div class="stat-label">总营收</div></div></div>
+        <div class="card"><div class="card-body stat-card"><div class="stat-icon">🍽️</div><div class="stat-number" id="dishCount">-</div><div class="stat-label">菜品数</div></div></div>
+        <div class="card"><div class="card-body stat-card"><div class="stat-icon">⭐</div><div class="stat-number" id="reviewCount">-</div><div class="stat-label">评价数</div></div></div>
+      `;
+
+      const [dishRes, reviewRes, orderRes] = await Promise.all([
+        api.get('/merchant/dishes'),
+        api.get('/merchant/reviews'),
+        api.get('/merchant/orders')
+      ]);
+      if(dishRes.code === 200) document.getElementById('dishCount').textContent = (dishRes.data || []).length;
+      if(reviewRes.code === 200) document.getElementById('reviewCount').textContent = (reviewRes.data || []).length;
+
+      if(orderRes.code === 200 && orderRes.data){
+        const recent = orderRes.data.slice(0, 10);
+        document.getElementById('recentOrdersBody').innerHTML = recent.length === 0 ? '<div class="card-body text-muted text-center">暂无订单</div>' :
+          '<div class="table-container"><table><tr><th>订单号</th><th>用户</th><th>金额</th><th>状态</th><th>时间</th></tr>' +
+          recent.map(o => `<tr><td>${o.order_id}</td><td>${o.user_name || '-'}</td><td>¥${money(o.order_amount)}</td><td>${orderStatusLabel(o.order_status)}</td><td>${o.create_time ? new Date(o.create_time).toLocaleString() : '-'}</td></tr>`).join('') +
+          '</table></div>';
+      } else {
+        document.getElementById('recentOrdersBody').innerHTML = '<div class="card-body text-muted text-center">暂无订单</div>';
+      }
+    }
+
+    function buildTimeOptions(select, placeholder) {
+      if (select.options.length) return;
+      select.innerHTML = `<option value="">${placeholder}</option>`;
+      for (let h = 0; h < 24; h++) {
+        for (const m of [0, 30]) {
+          const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+          select.insertAdjacentHTML('beforeend', `<option value="${value}">${value}</option>`);
+        }
+      }
+      select.insertAdjacentHTML('beforeend', '<option value="23:59">23:59</option>');
+    }
+
+    function ensureTimeOption(select, value) {
+      if (value && ![...select.options].some(opt => opt.value === value)) {
+        select.insertAdjacentHTML('beforeend', `<option value="${value}">${value}</option>`);
+      }
+    }
+
+    function initBusinessHourSelects() {
+      buildTimeOptions(document.getElementById('shopOpenTime'), '请选择开始时间');
+      buildTimeOptions(document.getElementById('shopCloseTime'), '请选择结束时间');
+    }
+
+    function setBusinessHours(hours) {
+      initBusinessHourSelects();
+      const match = (hours || '').match(/(\d{2}:\d{2})\s*[-~至到]\s*(\d{2}:\d{2})/);
+      const openTime = match ? match[1] : '09:00';
+      const closeTime = match ? match[2] : '21:00';
+      const openSelect = document.getElementById('shopOpenTime');
+      const closeSelect = document.getElementById('shopCloseTime');
+      ensureTimeOption(openSelect, openTime);
+      ensureTimeOption(closeSelect, closeTime);
+      openSelect.value = openTime;
+      closeSelect.value = closeTime;
+      syncBusinessHours();
+    }
+
+    function syncBusinessHours() {
+      const openTime = document.getElementById('shopOpenTime').value;
+      const closeTime = document.getElementById('shopCloseTime').value;
+      document.getElementById('shopHours').value = openTime && closeTime ? `${openTime}-${closeTime}` : '';
+    }
+
+    function renderShopImagePreview(url) {
+      const preview = document.getElementById('shopImagePreview');
+      if (!url) {
+        preview.innerHTML = '🏪';
+        return;
+      }
+      preview.innerHTML = `<img src="${url}" alt="店铺图片" onerror="this.parentElement.innerHTML='🏪'">`;
+    }
+
+    function chooseShopImage() {
+      const input = document.getElementById('shopImageFile');
+      input.value = '';
+      input.click();
+    }
+
+    async function uploadShopImage() {
+      const input = document.getElementById('shopImageFile');
+      if (!input.files || input.files.length === 0) return;
+      const fd = new FormData();
+      fd.append('image', input.files[0]);
+      const res = await fetch('/api/merchant/shop/image', {
+        method: 'POST',
+        body: fd,
+        credentials: 'include',
+        headers: { 'X-Auth-Token': getToken('merchant') || '' }
+      }).then(r => r.json());
+      if (res.code === 200) {
+        const url = res.data && res.data.shop_image_url ? res.data.shop_image_url : '';
+        document.getElementById('shopImageUrl').value = url;
+        renderShopImagePreview(url);
+        showToast('商家图片已上传');
+      } else {
+        showToast(res.message || '商家图片上传失败', 'error');
+      }
+    }
+
+    function clearShopImage() {
+      document.getElementById('shopImageUrl').value = '';
+      renderShopImagePreview('');
+    }
+
+    async function showShopModal(){
+      const res = await api.get('/merchant/shop');
+      if(res.code !== 200){showToast('获取店铺信息失败','error');return;}
+      const s = res.data;
+      document.getElementById('shopName').value = s.shop_name || '';
+      document.getElementById('shopMerchantType').value = merchantTypeLabel(s.merchant_type);
+      document.getElementById('shopContact').value = s.contact_name || '';
+      document.getElementById('shopPhone').value = s.contact_phone || '';
+      document.getElementById('shopAddress').value = s.shop_address || '';
+      document.getElementById('shopLatitude').value = s.shop_latitude || '';
+      document.getElementById('shopLongitude').value = s.shop_longitude || '';
+      document.getElementById('shopLocationName').value = s.shop_location_name || '';
+      document.getElementById('shopImageUrl').value = s.shop_image_url || '';
+      renderShopImagePreview(s.shop_image_url || '');
+      setBusinessHours(s.business_hours || '');
+      document.getElementById('shopDesc').value = s.shop_desc || '';
+      document.getElementById('shopStatus').value = s.business_status;
+      document.getElementById('shopModal').classList.remove('hidden');
+    }
+
+    function merchantTypeLabel(value) {
+      const map = {
+        '濂惰尪鍜栧暋': '奶茶咖啡',
+        '姹夊牎蹇': '汉堡快餐',
+        '绫崇矇姹ら潰': '米粉汤面',
+        '鐑х儰灏忓悆': '烧烤小吃',
+        '绮ラ鐢滃搧': '粥食甜品',
+        '鐑倰姝ｉ': '热炒正餐',
+        '鍏朵粬': '其他'
+      };
+      return map[value] || value || '其他';
+    }
+
+    function closeShopModal(){document.getElementById('shopModal').classList.add('hidden');}
+
+    async function saveShop(){
+      const data = {
+        shop_name: document.getElementById('shopName').value.trim(),
+        merchant_type: document.getElementById('shopMerchantType').value,
+        contact_name: document.getElementById('shopContact').value.trim(),
+        contact_phone: document.getElementById('shopPhone').value.trim(),
+        shop_address: document.getElementById('shopAddress').value.trim(),
+        shop_latitude: document.getElementById('shopLatitude').value,
+        shop_longitude: document.getElementById('shopLongitude').value,
+        shop_location_name: document.getElementById('shopLocationName').value,
+        shop_image_url: document.getElementById('shopImageUrl').value,
+        business_hours: document.getElementById('shopHours').value.trim(),
+        shop_desc: document.getElementById('shopDesc').value.trim(),
+        business_status: parseInt(document.getElementById('shopStatus').value)
+      };
+      const res = await api.put('/merchant/shop', data);
+      if(res.code === 200){showToast('店铺信息已保存');closeShopModal();loadUserInfo();loadStats();}else showToast(res.message,'error');
+    }
+
+    async function loadUserInfo(){
+      const u=await checkRole('merchant');
+      if(!u)return;
+      const res=await api.get('/merchant/shop');
+      const displayName=res.code===200&&res.data&&res.data.shop_name?res.data.shop_name:u.username;
+      document.getElementById('userInfo').textContent=displayName;
+      document.getElementById('userAvatar').textContent=displayName.charAt(0);
+    }
+    async function doLogout(){await auth.logout('merchant');window.location.href='../../index.html';}
+
+    AddressPicker.init({
+      buttonId: 'shopMapBtn',
+      addressInputId: 'shopAddress',
+      latInputId: 'shopLatitude',
+      lngInputId: 'shopLongitude',
+      nameInputId: 'shopLocationName'
+    });
+    loadUserInfo(); loadStats();
+  </script>
+</body>
+</html>

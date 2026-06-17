@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户首页 - 外卖订餐管理系统</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    .user-avatar-btn { display:inline-flex; align-items:center; gap:6px; cursor:pointer; padding:2px 6px; border-radius:8px; transition:background .15s; }
+    .user-avatar-btn:hover { background:rgba(0,0,0,.06); }
+    .user-avatar-circle { width:32px; height:32px; border-radius:50%; background:var(--primary); color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:.9rem; font-weight:600; flex-shrink:0; }
+    .merchant-filter-card { margin-bottom: 18px; }
+    .merchant-filter-card .card-body { padding: 16px 18px; }
+    .merchant-filter-header { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; }
+    .merchant-type-tabs { display:flex; gap:8px; margin-top:14px; overflow-x:auto; white-space:nowrap; padding:2px 2px 8px; scrollbar-width:thin; }
+    .merchant-type-tab { flex:0 0 auto; border:1px solid var(--border); background:#fff; color:#555; border-radius:999px; padding:7px 12px; cursor:pointer; font-size:.86rem; transition:all .2s; }
+    .merchant-type-tab:hover, .merchant-type-tab.active { border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
+    .merchant-section { margin-bottom: 22px; }
+    .merchant-section-title { display:flex; align-items:center; gap:8px; margin:0 0 12px; font-size:1.08rem; }
+    .merchant-card { height:100%; cursor:pointer; border:1px solid transparent; }
+    .merchant-card:hover { border-color:#ffd3c2; }
+    .merchant-card.too-far { cursor:not-allowed; opacity:.74; }
+    .merchant-card.too-far:hover { border-color:#fca5a5; }
+    .merchant-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+    .merchant-icon { width:64px; height:64px; border-radius:14px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; font-size:2rem; flex-shrink:0; }
+    .merchant-icon img { width:100%; height:100%; object-fit:cover; display:block; border-radius:14px; }
+    .merchant-rating { margin-top:10px; padding:9px 10px; border-radius:10px; background:#fff8f4; color:#7a3b18; font-size:.86rem; line-height:1.5; }
+    .merchant-rating .stars { color:#ff9f1a; letter-spacing:1px; }
+    .merchant-meta { min-height:44px; }
+    .merchant-actions { margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .location-hint { margin-bottom:14px; padding:10px 12px; border-radius:8px; background:#fff8f4; color:#7a3b18; font-size:.88rem; display:none; }
+    @media (max-width:768px) {
+      .merchant-filter-header { align-items:stretch; }
+      .merchant-filter-header .flex { width:100%; flex-wrap:wrap; }
+      #searchInput { width:100% !important; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🍱 外卖订餐</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html" class="active">首页</a></li>
+      <li><a href="orders.html">我的订单</a></li>
+      <li><a href="reviews.html">我的评价</a></li>
+      <li><a href="wallet.html">我的钱包</a></li>
+    </ul>
+    <div class="navbar-right">
+      <div class="user-avatar-btn" onclick="openProfileModal()">
+        <span class="user-avatar-circle" id="userAvatar">?</span>
+        <span class="user-info" id="userInfo"></span>
+      </div>
+      <a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <h2>🍽️ 附近商家</h2>
+      <a href="cart.html" class="btn btn-outline">🛒 购物车</a>
+    </div>
+
+    <div class="card merchant-filter-card">
+      <div class="card-body">
+        <div class="merchant-filter-header">
+          <div>
+            <h4>按商家类型筛选</h4>
+            <p class="text-muted" style="font-size:.86rem;margin-top:4px">搜索时优先按相关性排序，同相关性按默认收货地址距离排序。</p>
+          </div>
+          <div class="flex gap-10">
+            <input type="text" class="form-control" id="searchInput" placeholder="搜索商家名称、地址或简介..." style="width:280px" onkeydown="if(event.key==='Enter') searchMerchants()">
+            <button class="btn btn-primary" onclick="searchMerchants()">搜索</button>
+            <button class="btn btn-outline" id="resetBtn" onclick="resetSearch()" style="display:none">返回</button>
+          </div>
+        </div>
+        <div id="merchantTypeTabs" class="merchant-type-tabs"></div>
+      </div>
+    </div>
+
+    <div id="locationHint" class="location-hint"></div>
+    <div id="merchantList"></div>
+  </div>
+
+  <div id="profileModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>个人信息</h3>
+        <button class="modal-close" onclick="closeProfileModal()">&times;</button>
+      </div>
+      <div class="form-group"><label>真实姓名</label><input type="text" class="form-control" id="profileRealName"></div>
+      <div class="form-group"><label>联系电话</label><input type="text" class="form-control" id="profilePhone"></div>
+      <div class="form-group"><label>默认收货人</label><input type="text" class="form-control" id="profileReceiver"></div>
+      <div class="form-group"><label>默认收货电话</label><input type="text" class="form-control" id="profileReceiverPhone"></div>
+      <div class="form-group">
+        <label>默认收货地址</label>
+        <input type="text" class="form-control" id="profileAddress" placeholder="可手动输入地址，也可地图选点">
+        <input type="hidden" id="profileLatitude">
+        <input type="hidden" id="profileLongitude">
+        <input type="hidden" id="profileLocationName">
+        <button type="button" class="btn btn-sm btn-outline mt-10" id="profileMapBtn">地图选点</button>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="saveProfile()">保存修改</button>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script src="../../js/map-config.js?v=20260516f"></script>
+  <script src="../../js/map-picker.js?v=20260517b"></script>
+  <script>
+    const MERCHANT_TYPES = [
+      { key: '', label: '全部', icon: '🏪' },
+      { key: '奶茶咖啡', label: '奶茶咖啡', icon: '🥤' },
+      { key: '汉堡快餐', label: '汉堡快餐', icon: '🍔' },
+      { key: '米粉汤面', label: '米粉汤面', icon: '🍜' },
+      { key: '烧烤小吃', label: '烧烤小吃', icon: '🍢' },
+      { key: '粥食甜品', label: '粥食甜品', icon: '🍰' },
+      { key: '热炒正餐', label: '热炒正餐', icon: '🍲' },
+      { key: '其他', label: '其他', icon: '🍽️' }
+    ];
+    let currentType = '';
+    let currentMerchants = [];
+    let currentUser = null;
+    let currentLocation = null;
+    let useSavedAddressForMerchantSort = true;
+    let locationPromptShown = false;
+    const LOCATION_CHECK_KEY_PREFIX = 'user_location_checked_';
+    const LOCATION_MISMATCH_KM = 3;
+    const MAX_DELIVERY_KM = 100;
+
+    function safeText(value) {
+      return String(value ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+
+    function toNumber(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function distanceKm(lat1, lng1, lat2, lng2) {
+      lat1 = toNumber(lat1); lng1 = toNumber(lng1); lat2 = toNumber(lat2); lng2 = toNumber(lng2);
+      if ([lat1, lng1, lat2, lng2].some(v => v === null)) return null;
+      const rad = d => d * Math.PI / 180;
+      const dLat = rad(lat2 - lat1);
+      const dLng = rad(lng2 - lng1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
+      return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function showLocationHint(message) {
+      const hint = document.getElementById('locationHint');
+      hint.textContent = message || '';
+      hint.style.display = message ? 'block' : 'none';
+    }
+
+    function merchantQueryParams(extra = {}) {
+      const params = { ...extra };
+      if (currentUser && currentUser.default_latitude && currentUser.default_longitude) {
+        params.lat = currentUser.default_latitude;
+        params.lng = currentUser.default_longitude;
+      } else if (currentLocation) {
+        params.lat = currentLocation.lat;
+        params.lng = currentLocation.lng;
+      }
+      return params;
+    }
+
+    function locationCheckKey() {
+      const userKey = currentUser?.user_id || currentUser?.id || document.getElementById('userInfo')?.textContent || 'user';
+      return `${LOCATION_CHECK_KEY_PREFIX}${userKey}`;
+    }
+
+    function hasCheckedLoginLocation() {
+      return sessionStorage.getItem(locationCheckKey()) === '1';
+    }
+
+    function markLoginLocationChecked() {
+      sessionStorage.setItem(locationCheckKey(), '1');
+      locationPromptShown = true;
+    }
+
+    function ensureCurrentLocation() {
+      if (hasCheckedLoginLocation()) {
+        locationPromptShown = true;
+        return Promise.resolve(null);
+      }
+      if (!navigator.geolocation) {
+        showLocationHint('浏览器不支持定位，已按保存的收货地址排序。');
+        markLoginLocationChecked();
+        return Promise.resolve(null);
+      }
+      return new Promise(resolve => {
+        navigator.geolocation.getCurrentPosition(pos => {
+          currentLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          maybePromptAddressMismatch();
+          resolve(currentLocation);
+        }, () => {
+          showLocationHint('无法获取当前位置，已按保存的收货地址排序。');
+          markLoginLocationChecked();
+          resolve(null);
+        }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+      });
+    }
+
+    function maybePromptAddressMismatch() {
+      if (locationPromptShown || !currentLocation || !currentUser || !currentUser.default_latitude || !currentUser.default_longitude) {
+        markLoginLocationChecked();
+        return;
+      }
+      const km = distanceKm(currentLocation.lat, currentLocation.lng, currentUser.default_latitude, currentUser.default_longitude);
+      if (km === null || km <= LOCATION_MISMATCH_KM) {
+        showLocationHint('已按保存的收货地址展示附近商家。');
+        markLoginLocationChecked();
+        return;
+      }
+      markLoginLocationChecked();
+      const useSaved = confirm(`当前位置距离已保存收货地址约 ${km.toFixed(1)} km。点击“确定”继续使用已保存收货地址；点击“取消”更新收货地址。`);
+      if (useSaved) {
+        useSavedAddressForMerchantSort = true;
+        showLocationHint('已按保存的收货地址展示附近商家。');
+      } else {
+        useSavedAddressForMerchantSort = true;
+        showLocationHint('请在地图中更新收货地址，保存后将重新加载附近商家。');
+        openProfileModal();
+        setTimeout(() => document.getElementById('profileMapBtn')?.click(), 150);
+      }
+    }
+
+    async function loadMerchants(params = {}) {
+      const res = await api.get('/user/merchants', merchantQueryParams(params));
+      if (res.code === 200 && res.data) {
+        currentMerchants = (res.data || []).map(m => ({
+          ...m,
+          too_far: m.distance_km !== null && m.distance_km !== undefined && Number(m.distance_km) > MAX_DELIVERY_KM
+        }));
+        renderMerchants(currentMerchants);
+      } else {
+        document.getElementById('merchantList').innerHTML = '<div class="empty-state"><p>商家加载失败</p></div>';
+      }
+    }
+
+    function renderTypeTabs() {
+      const counts = currentMerchants.reduce((acc, m) => {
+        const type = m.shop_type || '其他';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {});
+      const total = currentMerchants.length;
+      document.getElementById('merchantTypeTabs').innerHTML = MERCHANT_TYPES.map(t => `
+        <button class="merchant-type-tab ${currentType === t.key ? 'active' : ''}" onclick="filterByType('${t.key}')">
+          ${t.icon} ${t.label} <span class="badge badge-secondary">${t.key ? (counts[t.key] || 0) : total}</span>
+        </button>
+      `).join('');
+    }
+
+    function renderStars(score) {
+      const value = Math.max(0, Math.min(5, Math.round(Number(score) || 0)));
+      return '★'.repeat(value) + '☆'.repeat(5 - value);
+    }
+
+    function ratingSummary(m) {
+      const dish = Number(m.avg_dish_score) || 0;
+      const delivery = Number(m.avg_delivery_score) || 0;
+      const count = Number(m.review_count) || 0;
+      if (!count) return '<div class="merchant-rating"><span class="stars">☆☆☆☆☆</span><br>暂无评价</div>';
+      const avg = ((dish + delivery) / 2).toFixed(1);
+      return `<div class="merchant-rating">
+        <span class="stars">${renderStars(avg)}</span> <strong>${avg}</strong> 分 · ${count} 条评价<br>
+        菜品 ${dish.toFixed(1)} 分 · 配送 ${delivery.toFixed(1)} 分
+      </div>`;
+    }
+
+    function distanceText(m) {
+      return m.distance_km === null || m.distance_km === undefined ? '' : `<p class="text-muted" style="font-size:0.85rem">📏 距默认地址 ${Number(m.distance_km).toFixed(2)} km</p>`;
+    }
+
+    function merchantCard(m) {
+      const type = m.shop_type || '其他';
+      const typeMeta = MERCHANT_TYPES.find(t => t.key === type) || MERCHANT_TYPES[7];
+      const iconHtml = m.shop_image_url
+        ? `<img src="${safeText(m.shop_image_url)}" alt="${safeText(m.shop_name)}" onerror="this.outerHTML='${safeText(m.type_icon || typeMeta.icon)}'">`
+        : (m.type_icon || typeMeta.icon);
+      return `
+        <div class="card merchant-card" onclick="viewMerchant(${m.merchant_id})">
+          <div class="card-body">
+            <div class="merchant-card-top">
+              <div class="merchant-icon">${iconHtml}</div>
+              <span class="badge badge-primary">${safeText(type)}</span>
+            </div>
+            <h4 style="margin:12px 0 6px">${safeText(m.shop_name)}</h4>
+            ${ratingSummary(m)}
+            <div class="merchant-meta mt-10">
+              <p class="text-muted" style="font-size:0.85rem">📍 ${safeText(m.shop_address || '暂无地址')}</p>
+              ${distanceText(m)}
+              <p class="text-muted" style="font-size:0.85rem">🕐 ${safeText(m.business_hours || '未设置')}</p>
+              <p style="font-size:0.85rem;margin-top:8px;color:#555">${safeText(m.shop_desc || '')}</p>
+            </div>
+            <div class="merchant-actions">
+              <span class="text-muted" style="font-size:.82rem">点击进入店铺</span>
+              <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();viewMerchant(${m.merchant_id})">查看菜单</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderMerchants(merchants) {
+      const container = document.getElementById('merchantList');
+      renderTypeTabs();
+      const displayMerchants = currentType
+        ? (merchants || []).filter(m => (m.shop_type || '其他') === currentType)
+        : (merchants || []);
+      if (!displayMerchants.length) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-icon">🏪</div><p>暂无符合条件的营业商家</p></div>';
+        return;
+      }
+
+      if (currentType) {
+        const typeMeta = MERCHANT_TYPES.find(t => t.key === currentType) || { icon: '🍽️', label: currentType };
+        container.innerHTML = `<section class="merchant-section">
+          <h3 class="merchant-section-title">${typeMeta.icon} ${typeMeta.label}</h3>
+          <div class="grid grid-3">${displayMerchants.map(merchantCard).join('')}</div>
+        </section>`;
+        return;
+      }
+
+      const sections = MERCHANT_TYPES.filter(t => t.key).map(t => {
+        const list = displayMerchants.filter(m => (m.shop_type || '其他') === t.key);
+        if (!list.length) return '';
+        return `<section class="merchant-section">
+          <h3 class="merchant-section-title">${t.icon} ${t.label} <span class="badge badge-secondary">${list.length} 家</span></h3>
+          <div class="grid grid-3">${list.map(merchantCard).join('')}</div>
+        </section>`;
+      }).join('');
+      container.innerHTML = sections || '<div class="empty-state"><div class="empty-icon">🏪</div><p>暂无营业中的商家</p></div>';
+    }
+
+    function filterByType(type) {
+      currentType = type;
+      renderMerchants(currentMerchants);
+      document.getElementById('resetBtn').style.display = type ? '' : 'none';
+    }
+
+    function viewMerchant(merchantId) {
+      window.location.href = `cart.html?merchant_id=${merchantId}`;
+    }
+
+    async function searchMerchants() {
+      const keyword = document.getElementById('searchInput').value.trim();
+      const params = { keyword };
+      if (currentType) params.type = currentType;
+      await loadMerchants(params);
+      document.getElementById('resetBtn').style.display = (keyword || currentType) ? '' : 'none';
+    }
+
+    function resetSearch() {
+      document.getElementById('searchInput').value = '';
+      currentType = '';
+      document.getElementById('resetBtn').style.display = 'none';
+      loadMerchants();
+    }
+
+    async function loadUserInfo() {
+      const u = await checkRole('user');
+      if (u) {
+        document.getElementById('userInfo').textContent = u.username;
+        document.getElementById('userAvatar').textContent = u.username.charAt(0);
+      }
+      const res = await api.get('/user/profile');
+      if (res.code === 200 && res.data) currentUser = res.data;
+    }
+
+    function openProfileModal() {
+      const u = currentUser || {};
+      document.getElementById('profileRealName').value = u.real_name || '';
+      document.getElementById('profilePhone').value = u.phone || '';
+      document.getElementById('profileReceiver').value = u.default_receiver || u.real_name || '';
+      document.getElementById('profileReceiverPhone').value = u.default_phone || u.phone || '';
+      document.getElementById('profileAddress').value = u.default_address || '';
+      document.getElementById('profileLatitude').value = u.default_latitude || '';
+      document.getElementById('profileLongitude').value = u.default_longitude || '';
+      document.getElementById('profileLocationName').value = u.default_location_name || '';
+      document.getElementById('profileModal').classList.remove('hidden');
+    }
+
+    function closeProfileModal() {
+      document.getElementById('profileModal').classList.add('hidden');
+    }
+
+    async function saveProfile() {
+      const data = {
+        real_name: document.getElementById('profileRealName').value.trim(),
+        phone: document.getElementById('profilePhone').value.trim(),
+        default_receiver: document.getElementById('profileReceiver').value.trim(),
+        default_phone: document.getElementById('profileReceiverPhone').value.trim(),
+        default_address: document.getElementById('profileAddress').value.trim(),
+        default_latitude: document.getElementById('profileLatitude').value,
+        default_longitude: document.getElementById('profileLongitude').value,
+        default_location_name: document.getElementById('profileLocationName').value
+      };
+      const res = await api.put('/user/profile', data);
+      if (res.code === 200) {
+        showToast('个人信息已更新');
+        closeProfileModal();
+        useSavedAddressForMerchantSort = true;
+        markLoginLocationChecked();
+        await loadUserInfo();
+        await loadMerchants({ keyword: document.getElementById('searchInput').value.trim() });
+      } else {
+        showToast(res.message || '保存失败', 'error');
+      }
+    }
+
+    async function doLogout() {
+      sessionStorage.removeItem(locationCheckKey());
+      await auth.logout('user');
+      window.location.href = '../../index.html';
+    }
+
+    AddressPicker.init({
+      buttonId: 'profileMapBtn',
+      addressInputId: 'profileAddress',
+      latInputId: 'profileLatitude',
+      lngInputId: 'profileLongitude',
+      nameInputId: 'profileLocationName'
+    });
+    (async function init() {
+      await loadUserInfo();
+      await ensureCurrentLocation();
+      await loadMerchants();
+    })();
+  </script>
+</body>
+</html>

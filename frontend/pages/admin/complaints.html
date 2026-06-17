@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>投诉管理 - 管理后台</title>
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">⚙️ 管理后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="users.html">用户管理</a></li>
+      <li><a href="merchants.html">商家管理</a></li>
+      <li><a href="riders.html">配送员管理</a></li>
+      <li><a href="orders.html">订单监管</a></li>
+      <li><a href="complaints.html" class="active">投诉管理</a></li>
+      <li><a href="statistics.html">数据统计</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h2>⚠️ 投诉管理</h2>
+        <div class="text-muted" style="font-size:.9rem;margin-top:4px">管理员可对用户投诉进行审核：全额退款、部分退款 50% 或驳回投诉。</div>
+      </div>
+    </div>
+
+    <div class="card mb-20">
+      <div class="card-body" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;align-items:center">
+        <input type="text" class="form-control" id="complaintKeyword" placeholder="订单号/用户/商家/内容" style="width:210px" onkeydown="if(event.key==='Enter') loadComplaints()">
+        <select class="form-control" id="complaintStatusFilter" style="width:130px" onchange="loadComplaints()">
+          <option value="">全部状态</option>
+          <option value="1">待审核</option>
+          <option value="2">已通过</option>
+          <option value="3">已驳回</option>
+        </select>
+        <input type="date" class="form-control" id="startDate" style="width:145px" onchange="loadComplaints()">
+        <input type="date" class="form-control" id="endDate" style="width:145px" onchange="loadComplaints()">
+        <button class="btn btn-primary" onclick="loadComplaints()">查询</button>
+        <button class="btn btn-outline" onclick="resetComplaintQuery()">重置</button>
+      </div>
+    </div>
+
+    <div id="complaintList" class="loading"><div class="spinner"></div></div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    const COMPLAINT_STATUS = {
+      0: { label: '未进入审核', badge: 'badge-secondary' },
+      1: { label: '待审核', badge: 'badge-warning' },
+      2: { label: '已通过', badge: 'badge-success' },
+      3: { label: '已驳回', badge: 'badge-danger' }
+    };
+    const REFUND_TYPE = {
+      0: '无退款',
+      1: '全额退款',
+      2: '部分退款 50%'
+    };
+
+    function statusBadge(status) {
+      const s = COMPLAINT_STATUS[Number(status)] || COMPLAINT_STATUS[0];
+      return `<span class="badge ${s.badge}">${s.label}</span>`;
+    }
+
+    function money(value) {
+      return `¥${Number(value || 0).toFixed(2)}`;
+    }
+
+    function canHandle(row) {
+      const status = Number(row.complaint_status || 0);
+      return status === 0 || status === 1;
+    }
+
+    async function loadComplaints(){
+      const cont=document.getElementById('complaintList');
+      cont.className = 'loading';
+      cont.innerHTML = '<div class="spinner"></div>';
+      const res=await api.get('/admin/complaints', {
+        keyword: document.getElementById('complaintKeyword').value.trim(),
+        complaint_status: document.getElementById('complaintStatusFilter').value,
+        start_date: document.getElementById('startDate').value,
+        end_date: document.getElementById('endDate').value
+      });
+      if(res.code!==200){
+        cont.className='empty-state';
+        cont.innerHTML=`<div class="empty-icon">⚠️</div><p>${res.message || '加载投诉失败'}</p>`;
+        return;
+      }
+      if(!res.data||res.data.length===0){
+        cont.className='empty-state';
+        cont.innerHTML='<div class="empty-icon">✅</div><p>暂无投诉记录</p>';
+        return;
+      }
+      cont.className='';
+      cont.innerHTML=res.data.map(r=>`
+        <div class="card mb-10">
+          <div class="card-body">
+            <div class="flex-between">
+              <div>
+                <strong>投诉用户：</strong>${r.user_name||'-'}
+                <span class="text-muted" style="font-size:0.85rem"> | 订单号：${r.order_id}</span>
+              </div>
+              ${statusBadge(r.complaint_status)}
+            </div>
+            <div class="mt-10">
+              <strong>商家：</strong>${r.shop_name||'-'} |
+              <strong>配送员：</strong>${r.rider_name||'-'} |
+              <strong>订单金额：</strong>${money(r.order_amount)}
+            </div>
+            <div class="mt-10" style="background:var(--light-gray);padding:10px;border-radius:8px">
+              <strong>投诉内容：</strong>${r.content||r.after_sale_reason||'-'}
+            </div>
+            <div class="text-muted mt-10" style="font-size:0.85rem">投诉时间：${r.review_time ? new Date(r.review_time).toLocaleString() : '-'}</div>
+            ${r.complaint_handle_note ? `
+              <div class="mt-10" style="background:#f8fafc;padding:10px;border-radius:8px">
+                <div><strong>处理结果：</strong>${REFUND_TYPE[Number(r.complaint_refund_type || r.refund_type || 0)] || '-'}</div>
+                <div><strong>审核备注：</strong>${r.complaint_handle_note}</div>
+                <div><strong>退款金额：</strong>${money(r.refund_amount)}</div>
+                <div class="text-muted" style="font-size:0.85rem">处理时间：${r.complaint_handle_time ? new Date(r.complaint_handle_time).toLocaleString() : '-'}</div>
+              </div>` : ''}
+            <div class="mt-10" style="display:flex;gap:8px;flex-wrap:wrap">
+              ${canHandle(r) ? `
+                <button class="btn btn-sm btn-success" onclick="handleComplaint(${r.review_id}, 'full_refund')">通过并全额退款</button>
+                <button class="btn btn-sm btn-primary" onclick="handleComplaint(${r.review_id}, 'partial_refund')">通过并退 50%</button>
+                <button class="btn btn-sm btn-danger" onclick="handleComplaint(${r.review_id}, 'reject')">驳回投诉</button>
+              ` : '<span class="text-muted">该投诉已处理</span>'}
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    async function handleComplaint(reviewId, action) {
+      const labelMap = {
+        full_refund: '通过投诉并全额退款',
+        partial_refund: '通过投诉并退款 50%',
+        reject: '驳回投诉'
+      };
+      const note = prompt(`请输入“${labelMap[action]}”的审核备注：`);
+      if (note === null) return;
+      if (!note.trim()) {
+        showToast('请填写审核备注', 'warning');
+        return;
+      }
+      if (!confirm(`确认${labelMap[action]}？`)) return;
+      const res = await api.put(`/admin/complaints/${reviewId}/handle`, {
+        action,
+        note: note.trim()
+      });
+      if (res.code === 200) {
+        showToast('投诉已处理');
+        loadComplaints();
+      } else {
+        showToast(res.message || '处理失败', 'error');
+      }
+    }
+
+    function resetComplaintQuery() {
+      document.getElementById('complaintKeyword').value = '';
+      document.getElementById('complaintStatusFilter').value = '';
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value = '';
+      loadComplaints();
+    }
+
+    async function loadUserInfo(){const u=await checkRole('admin');if(u)document.getElementById('userInfo').textContent='👑 '+u.username;}
+    async function doLogout(){await auth.logout('admin');window.location.href='../../index.html';}
+    loadUserInfo();loadComplaints();
+  </script>
+</body>
+</html>

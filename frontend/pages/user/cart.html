@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>菜单 - 外卖订餐管理系统</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    .menu-dish-img { width:86px;height:68px;border-radius:8px;object-fit:cover;border:1px solid var(--border);background:#f3f4f6;flex-shrink:0; }
+    .menu-dish-placeholder { width:86px;height:68px;border-radius:8px;border:1px dashed #cbd5e1;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0; }
+    .menu-toolbar { display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; align-items:center; }
+    .menu-toolbar .form-control { width:auto; min-width:130px; }
+    .dish-row { border-bottom:1px solid var(--border); }
+    .dish-row-main {
+      display:grid;
+      grid-template-columns:86px minmax(0, 1fr) 96px;
+      align-items:start;
+      column-gap:18px;
+      min-height:116px;
+      padding:16px;
+      cursor:pointer;
+    }
+    .dish-main-info { min-width:0; padding-top:2px; }
+    .dish-title-line { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; line-height:1.35; }
+    .dish-title-line strong { font-size:1rem; color:#334155; }
+    .dish-stock { font-size:.85rem; color:#64748b; margin-top:6px; }
+    .dish-desc { font-size:.84rem; color:#475569; margin-top:6px; line-height:1.45; min-height:20px; }
+    .dish-price-actions { text-align:right; justify-self:end; min-width:86px; }
+    .cart-modal { width:min(620px, 94vw); }
+    .cart-items { margin-bottom:14px; }
+    .cart-item { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .cart-item:last-child { border-bottom:0; }
+    .cart-item-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+    .checkout-section { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+    .checkout-total { margin-top:12px; padding:12px 0; border-top:1px solid var(--border); }
+    .dish-review-box { margin:0 16px 12px 114px; border:1px solid #e5e7eb; border-radius:10px; background:#fafafa; overflow:hidden; }
+    .dish-review-columns { display:grid; grid-template-columns:1fr 1fr; height:160px; }
+    .dish-review-col { min-width:0; height:160px; padding:10px 12px; overflow-y:scroll; overflow-x:auto; scrollbar-gutter:stable; }
+    .dish-review-col + .dish-review-col { border-left:1px solid #e5e7eb; }
+    .dish-review-title { position:sticky; top:0; z-index:1; background:#fafafa; font-weight:600; font-size:.86rem; margin:0 0 8px; padding-bottom:8px; color:#334155; }
+    .dish-review-item { padding:8px 0; border-top:1px dashed #e2e8f0; font-size:.84rem; line-height:1.45; }
+    .dish-review-col::-webkit-scrollbar { width:10px; height:8px; }
+    .dish-review-col::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:999px; }
+    .dish-review-col::-webkit-scrollbar-track { background:#f1f5f9; }
+    .dish-review-item:first-of-type { border-top:0; }
+    .dish-review-meta { display:flex; justify-content:space-between; gap:8px; color:#64748b; font-size:.78rem; }
+    .review-stars { color:#ff9f1a; letter-spacing:1px; }
+    .dish-review-empty { color:#94a3b8; font-size:.84rem; padding:18px 0; text-align:center; }
+    .dish-review-toggle { margin-top:8px; color:var(--primary); font-size:.82rem; }
+    .merchant-reply { margin-top:6px; padding:6px 8px; border-radius:8px; background:#fff; color:#475569; }
+    @media (max-width:768px) {
+      .menu-toolbar .form-control { width:100%; }
+      .dish-row-main { grid-template-columns:72px minmax(0, 1fr); column-gap:12px; min-height:0; }
+      .menu-dish-img, .menu-dish-placeholder { width:72px; height:58px; }
+      .dish-price-actions { grid-column:2; justify-self:start; text-align:left; margin-top:8px; }
+      .cart-item { align-items:flex-start; flex-direction:column; }
+      .cart-item-actions { width:100%; justify-content:space-between; }
+      .dish-review-box { margin-left:16px; }
+      .dish-review-columns { grid-template-columns:1fr; height:auto; }
+      .dish-review-col { height:150px; }
+      .dish-review-col + .dish-review-col { border-left:0; border-top:1px solid #e5e7eb; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🍱 外卖订餐</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="orders.html">我的订单</a></li>
+      <li><a href="reviews.html">我的评价</a></li>
+      <li><a href="wallet.html">我的钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h2 id="merchantName">🏪 菜单</h2>
+        <div class="text-muted" style="font-size:.9rem;margin-top:4px">选择菜品加入购物车，提交订单时可手动输入地址或地图选点。</div>
+      </div>
+      <div class="flex gap-10">
+        <button class="btn btn-outline" id="merchantReviewBtn" onclick="viewMerchantReviews()">查看评价</button>
+        <button class="btn btn-outline" onclick="window.location.href='dashboard.html'">返回首页</button>
+        <button class="btn btn-primary" onclick="showCart()">购物车 <span id="cartCount" class="badge badge-light">0</span></button>
+      </div>
+    </div>
+
+    <div class="card mb-20" id="dishFilterCard">
+      <div class="card-body">
+        <div class="menu-toolbar">
+          <input type="text" class="form-control" id="dishKeyword" placeholder="菜品名称/描述" onkeydown="if(event.key==='Enter') loadDishes()">
+          <select class="form-control" id="sortFilter">
+            <option value="">默认排序</option>
+            <option value="sales">销量优先</option>
+            <option value="price_asc">价格从低到高</option>
+            <option value="price_desc">价格从高到低</option>
+          </select>
+          <button class="btn btn-primary" onclick="loadDishes()">查询</button>
+          <button class="btn btn-outline" onclick="resetDishQuery()">重置</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="dishList" class="loading"><div class="spinner"></div><p>加载中...</p></div>
+  </div>
+
+  <div id="cartModal" class="modal-overlay hidden">
+    <div class="modal-content cart-modal">
+      <div class="modal-header"><h3>购物车</h3><button class="modal-close" onclick="closeCart()">&times;</button></div>
+      <div id="cartItems" class="cart-items"></div>
+      <div id="checkoutPanel" class="checkout-section">
+        <div class="flex-between">
+          <strong>收货信息</strong>
+          <button class="btn btn-sm btn-outline" onclick="fillDefaultAddress()">使用默认地址</button>
+        </div>
+        <div class="form-group mt-10"><label>收货人</label><input type="text" class="form-control" id="receiverName" placeholder="请输入收货人"></div>
+        <div class="form-group"><label>联系电话</label><input type="text" class="form-control" id="receiverPhone" placeholder="请输入联系电话"></div>
+        <div class="form-group">
+          <label>收货地址</label>
+          <input type="text" class="form-control" id="receiverAddress" placeholder="可手动输入地址，也可使用地图选点">
+          <input type="hidden" id="receiverLatitude">
+          <input type="hidden" id="receiverLongitude">
+          <input type="hidden" id="receiverLocationName">
+          <button type="button" class="btn btn-sm btn-outline mt-10" id="receiverMapBtn">地图选点</button>
+        </div>
+        <div class="form-group">
+          <label>餐具份数 *</label>
+          <input type="number" min="1" step="1" class="form-control" id="tablewareCount" value="1">
+        </div>
+        <div class="form-group">
+          <label>支付方式</label>
+          <select class="form-control" id="payMethod">
+            <option value="wechat">微信支付</option>
+            <option value="alipay">支付宝</option>
+            <option value="bank_card">银行卡</option>
+            <option value="wallet">我的钱包</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>支付密码</label>
+          <input type="password" class="form-control" id="payPassword" placeholder="请输入支付密码" autocomplete="new-password">
+        </div>
+        <div class="flex-between checkout-total">
+          <span>配送费：¥<span id="deliveryFee">3.00</span></span>
+          <span class="text-primary" style="font-size:1.2rem;font-weight:600">合计：¥<span id="totalAmount">0.00</span></span>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="placeOrder()">提交订单并支付</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script src="../../js/map-config.js?v=20260516f"></script>
+  <script src="../../js/map-picker.js?v=20260517b"></script>
+  <script>
+    const merchantId = new URLSearchParams(window.location.search).get('merchant_id');
+    // 购物车使用 sessionStorage 按当前浏览器标签页保存，避免多账号/多标签互相串单。
+    const CART_STORAGE_KEY = 'user_cart_v2';
+    let cart = {};
+    let defaultAddress = null;
+    let merchantInfo = null;
+    let currentDeliveryFee = 3;
+    const MAX_DELIVERY_KM = 100;
+    const loadedDishReviews = new Set();
+
+    // 金额、坐标和距离工具函数：前端只负责展示和预校验，最终金额以后端计算为准。
+    function money(value) { return Number(value || 0).toFixed(2); }
+    function toNumber(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : null;
+    }
+    function normalizedPoint(lat, lng) {
+      lat = toNumber(lat);
+      lng = toNumber(lng);
+      if (lat === null || lng === null) return null;
+      if (Math.abs(lat) > 90 && Math.abs(lng) <= 90) return { lat: lng, lng: lat };
+      if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+      return { lat, lng };
+    }
+    function distanceKm(lat1, lng1, lat2, lng2) {
+      const p1 = normalizedPoint(lat1, lng1);
+      const p2 = normalizedPoint(lat2, lng2);
+      if (!p1 || !p2) return null;
+      lat1 = p1.lat; lng1 = p1.lng; lat2 = p2.lat; lng2 = p2.lng;
+      const rad = d => d * Math.PI / 180;
+      const dLat = rad(lat2 - lat1);
+      const dLng = rad(lng2 - lng1);
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
+      return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+    function deliveryFeeByDistance(km) {
+      if (km === null) return 3;
+      return km <= 3 ? 3 : 3 + (km - 3) * 0.5;
+    }
+    function cartSubtotal() {
+      return Object.values(cart).reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+    }
+    function loadSavedCart() {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(CART_STORAGE_KEY) || '{}');
+        cart = saved && typeof saved === 'object' ? saved : {};
+      } catch (e) {
+        cart = {};
+      }
+    }
+    function saveCart() {
+      sessionStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    }
+    // 按商家拆分购物车。同一购物车可以一起支付，但后端会按商家生成多个订单。
+    function cartGroups() {
+      const groups = new Map();
+      Object.entries(cart).forEach(([dishId, item]) => {
+        const groupId = String(item.merchant_id || merchantId || 'unknown');
+        if (!groups.has(groupId)) {
+          groups.set(groupId, {
+            merchant_id: Number(item.merchant_id || merchantId || 0),
+            merchant_name: item.merchant_name || (merchantInfo && String(merchantInfo.merchant_id) === groupId ? merchantInfo.shop_name : '未知商家'),
+            shop_latitude: item.shop_latitude || (merchantInfo && String(merchantInfo.merchant_id) === groupId ? merchantInfo.shop_latitude : ''),
+            shop_longitude: item.shop_longitude || (merchantInfo && String(merchantInfo.merchant_id) === groupId ? merchantInfo.shop_longitude : ''),
+            items: []
+          });
+        }
+        groups.get(groupId).items.push([dishId, item]);
+      });
+      return Array.from(groups.values()).filter(g => g.merchant_id && g.items.length);
+    }
+    async function ensureCartMerchantLocations() {
+      // 历史购物车条目可能没有商家坐标，打开购物车时主动补齐，保证配送费显示准确。
+      const groups = cartGroups();
+      let changed = false;
+      for (const group of groups) {
+        const res = await api.get(`/user/merchants/${group.merchant_id}`);
+        if (res.code !== 200 || !res.data) continue;
+        Object.values(cart).forEach(item => {
+          if (Number(item.merchant_id) !== Number(group.merchant_id)) return;
+          item.merchant_name = res.data.shop_name || item.merchant_name || '';
+          item.shop_latitude = res.data.shop_latitude || '';
+          item.shop_longitude = res.data.shop_longitude || '';
+          changed = true;
+        });
+      }
+      if (changed) saveCart();
+    }
+    function groupSubtotal(group) {
+      return group.items.reduce((sum, [, item]) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+    }
+    function groupDeliveryDetail(group) {
+      // 配送距离按商家店铺坐标到当前收货地址坐标计算。
+      const distance = distanceKm(
+        group.shop_latitude,
+        group.shop_longitude,
+        document.getElementById('receiverLatitude').value,
+        document.getElementById('receiverLongitude').value
+      );
+      return {
+        distance,
+        fee: deliveryFeeByDistance(distance),
+        hasCoordinates: distance !== null
+      };
+    }
+    function groupDeliveryFee(group) {
+      return groupDeliveryDetail(group).fee;
+    }
+    function findDeliveryDistanceViolation(groups = cartGroups()) {
+      for (const group of groups) {
+        const delivery = groupDeliveryDetail(group);
+        if (delivery.hasCoordinates && delivery.distance > MAX_DELIVERY_KM) {
+          return { group, delivery };
+        }
+      }
+      return null;
+    }
+    function refreshCartGroupSummaries() {
+      const groups = new Map(cartGroups().map(group => [String(group.merchant_id), group]));
+      document.querySelectorAll('.cart-group-summary').forEach(el => {
+        const group = groups.get(String(el.dataset.merchantId));
+        if (!group) return;
+        const prefix = el.dataset.prefix || '';
+        const includeTotal = el.dataset.includeTotal === '1';
+        el.textContent = prefix + cartGroupSummaryText(group, includeTotal);
+      });
+    }
+    function refreshDeliveryFee() {
+      // 多商家购物车的配送费按商家分别计算后求和。
+      const groups = cartGroups();
+      currentDeliveryFee = groups.length
+        ? groups.reduce((sum, group) => sum + groupDeliveryFee(group), 0)
+        : 3;
+      const feeEl = document.getElementById('deliveryFee');
+      const totalEl = document.getElementById('totalAmount');
+      if (feeEl) feeEl.textContent = money(currentDeliveryFee);
+      if (totalEl) totalEl.textContent = money(cartSubtotal() + currentDeliveryFee);
+      refreshCartGroupSummaries();
+    }
+    function safeText(value) {
+      return String(value ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+    function attrJs(value) {
+      return safeText(String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' '));
+    }
+    function dishImageHtml(d) {
+      if (!d.image_url) return '<div class="menu-dish-placeholder">🍽️</div>';
+      return `<img class="menu-dish-img" src="${safeText(d.image_url)}" alt="${safeText(d.dish_name)}" onerror="this.outerHTML='<div class=&quot;menu-dish-placeholder&quot;>🍽️</div>'">`;
+    }
+
+    function renderStars(score) {
+      const value = Math.max(0, Math.min(5, Math.round(Number(score) || 0)));
+      return '★'.repeat(value) + '☆'.repeat(5 - value);
+    }
+
+    function maskName(name) {
+      const text = String(name || '匿名用户').trim();
+      if (text.length <= 1) return text;
+      return text.charAt(0) + '*'.repeat(Math.min(text.length - 1, 2));
+    }
+
+    function formatDate(value) {
+      return value ? new Date(value).toLocaleString() : '-';
+    }
+
+    function reviewItemHtml(r) {
+      return `
+        <div class="dish-review-item">
+          <div class="dish-review-meta">
+            <span>${safeText(maskName(r.real_name || r.user_name))} · 订单 ${r.order_id || '-'}</span>
+            <span>${safeText(formatDate(r.review_time))}</span>
+          </div>
+          <div style="margin-top:5px">
+            <span class="review-stars">${renderStars(r.dish_score)}</span>
+            <span class="text-muted">菜品 ${Number(r.dish_score || 0).toFixed(1)}${r.delivery_score == null ? '' : ` · 配送 ${Number(r.delivery_score || 0).toFixed(1)}`}</span>
+          </div>
+          <div class="text-muted" style="margin-top:5px">
+            ${r.review_scope === 'dish'
+              ? `单品评价：${safeText(r.review_dish_name || '')}`
+              : `订单整体评价 · 涉及菜品：${safeText(r.dish_summary || '暂无菜品信息')}`}
+          </div>
+          <div style="margin-top:5px">${safeText(r.content || '用户未填写文字评价')}</div>
+          ${r.merchant_reply ? `<div class="merchant-reply"><small class="text-muted">商家回复：</small>${safeText(r.merchant_reply)}</div>` : ''}
+        </div>`;
+    }
+
+    function reviewColumnHtml(title, rows) {
+      return `
+        <div class="dish-review-col">
+          <div class="dish-review-title">${title}</div>
+          ${rows.length ? rows.slice(0, 10).map(reviewItemHtml).join('') : '<div class="dish-review-empty">暂无评价</div>'}
+        </div>`;
+    }
+
+    async function loadDishReviews(dishId) {
+      const panel = document.getElementById(`dishReviews-${dishId}`);
+      if (!panel) return;
+      const res = await api.get(`/user/dishes/${dishId}/reviews`);
+      if (res.code !== 200) {
+        panel.innerHTML = '<div class="dish-review-empty">暂无评价</div>';
+        return;
+      }
+      const reviews = Array.isArray(res.data) ? res.data : [];
+      const normalReviews = reviews.filter(r => Number(r.review_type || 1) === 1).slice(0, 10);
+      const complaintReviews = reviews.filter(r => Number(r.review_type || 1) === 2).slice(0, 10);
+      panel.innerHTML = `
+        <div class="dish-review-columns">
+          ${reviewColumnHtml('普通评价（最近最多10条）', normalReviews)}
+          ${reviewColumnHtml('投诉评价（最近最多10条）', complaintReviews)}
+        </div>`;
+    }
+
+    function toggleDishReviews(dishId) {
+      const panel = document.getElementById(`dishReviews-${dishId}`);
+      const hint = document.getElementById(`dishReviewHint-${dishId}`);
+      if (!panel) return;
+      const willShow = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !willShow);
+      if (hint) hint.textContent = willShow ? '点击隐藏历史评价' : '点击查看历史评价';
+      if (willShow && !loadedDishReviews.has(dishId)) {
+        loadedDishReviews.add(dishId);
+        loadDishReviews(dishId);
+      }
+    }
+    async function loadDishes() {
+      // 没有 merchant_id 时是独立购物车页，只展示已选商品，不再加载其他菜品。
+      if (!merchantId) {
+        document.getElementById('merchantName').textContent = '购物车';
+        document.getElementById('merchantReviewBtn').classList.add('hidden');
+        document.getElementById('dishFilterCard').classList.add('hidden');
+        await renderCartOnlyPage();
+        return;
+      }
+      if (merchantId) {
+        const merchantRes = await api.get(`/user/merchants/${merchantId}`);
+        if (merchantRes.code === 200 && merchantRes.data) {
+          merchantInfo = merchantRes.data;
+          document.getElementById('merchantName').textContent = `🏪 ${merchantRes.data.shop_name || ''} - 菜单`;
+        }
+      }
+      const params = {
+        merchant_id: merchantId,
+        keyword: document.getElementById('dishKeyword').value.trim(),
+        sort: document.getElementById('sortFilter').value
+      };
+      const res = await api.get('/user/dishes', params);
+      const list = document.getElementById('dishList');
+      if(res.code !== 200 || !res.data || res.data.length === 0){
+        list.innerHTML = '<div class="empty-state"><div class="empty-icon">🍽️</div><p>没有符合条件的菜品</p></div>';
+        return;
+      }
+      list.innerHTML = `<div class="card">${res.data.map(d => `
+        <div class="dish-row">
+          <div class="dish-row-main" onclick="toggleDishReviews(${d.dish_id})">
+            ${dishImageHtml(d)}
+            <div class="dish-main-info">
+              <div class="dish-title-line">
+                <strong>${safeText(d.dish_name)}</strong>
+                <span class="text-muted" style="font-size:.85rem">${safeText(d.specification || '')}</span>
+              </div>
+              <div class="dish-stock">库存：${d.stock}</div>
+              <div class="dish-desc">${safeText(d.dish_desc || '')}</div>
+              <div class="dish-review-toggle" id="dishReviewHint-${d.dish_id}">点击查看历史评价</div>
+            </div>
+            <div class="dish-price-actions">
+              <div class="text-primary" style="font-weight:600">¥${money(d.price)}</div>
+              <button class="btn btn-sm btn-primary mt-10" ${Number(d.stock) <= 0 ? 'disabled' : ''} onclick="event.stopPropagation();addToCart(${d.dish_id}, '${attrJs(d.dish_name)}', ${Number(d.price) || 0}, ${Number(d.stock) || 0}, '${attrJs(d.specification || '')}')">${Number(d.stock) > 0 ? '加入' : '售罄'}</button>
+            </div>
+          </div>
+          <div class="dish-review-box hidden" id="dishReviews-${d.dish_id}">
+            <div class="dish-review-empty">正在加载评价...</div>
+          </div>
+        </div>`).join('')}</div>`;
+    }
+
+    function resetDishQuery(){
+      document.getElementById('dishKeyword').value = '';
+      document.getElementById('sortFilter').value = '';
+      loadDishes();
+    }
+
+    function viewMerchantReviews() {
+      if (!merchantId) return showToast('缺少商家信息', 'error');
+      window.location.href = `merchant_reviews.html?merchant_id=${merchantId}`;
+    }
+
+    function currentMerchantDeliveryDistance() {
+      if (!merchantInfo || !defaultAddress) return null;
+      return distanceKm(
+        merchantInfo.shop_latitude,
+        merchantInfo.shop_longitude,
+        defaultAddress.latitude,
+        defaultAddress.longitude
+      );
+    }
+
+    function addToCart(dishId, dishName, price, stock, specification = '') {
+      // 加购前先做 100km 前端预校验；后端下单时会再次校验，防止绕过页面限制。
+      const merchantDistance = currentMerchantDeliveryDistance();
+      if (merchantDistance !== null && merchantDistance > MAX_DELIVERY_KM) {
+        return showCenterToast(`商家距离收货地址 ${merchantDistance.toFixed(2)} km，超过100km，无法加入购物车`, 'warning');
+      }
+      const currentQty = cart[dishId] ? Number(cart[dishId].quantity) || 0 : 0;
+      if (currentQty + 1 > stock) return showCenterToast(`${dishName} 库存不足`, 'warning');
+      if(!cart[dishId]) cart[dishId] = {
+        dish_id: dishId,
+        dish_name: dishName,
+        price,
+        quantity: 1,
+        specification,
+        stock,
+        merchant_id: Number(merchantId),
+        merchant_name: merchantInfo ? merchantInfo.shop_name : '',
+        shop_latitude: merchantInfo ? merchantInfo.shop_latitude : '',
+        shop_longitude: merchantInfo ? merchantInfo.shop_longitude : ''
+      };
+      else cart[dishId].quantity += 1;
+      saveCart();
+      updateCartCount();
+      showToast(`${dishName} 已加入购物车`);
+    }
+
+    function updateCartCount() {
+      document.getElementById('cartCount').textContent = Object.values(cart).reduce((s, i) => s + i.quantity, 0);
+    }
+
+    async function showCart() {
+      // 弹窗结算面板展示所有已选商品，并把收货信息放在商品列表下方。
+      await ensureCartMerchantLocations();
+      autoFillDefaultAddressIfEmpty();
+      const groups = cartGroups();
+      const cont = document.getElementById('cartItems');
+      const checkoutPanel = document.getElementById('checkoutPanel');
+      if(groups.length === 0){
+        cont.innerHTML = '<div class="empty-state"><p>购物车为空</p></div>';
+        checkoutPanel.classList.add('hidden');
+        document.getElementById('cartModal').classList.remove('hidden');
+        return;
+      }
+      checkoutPanel.classList.remove('hidden');
+      cont.innerHTML = groups.map(group => `
+        <div class="cart-merchant-group">
+          ${cartGroupHeaderHtml(group)}
+          ${group.items.map(([id, item]) => cartItemHtml(id, item)).join('')}
+        </div>
+      `).join('');
+      document.getElementById('cartModal').classList.remove('hidden');
+      refreshDeliveryFee();
+    }
+
+    function cartGroupHeaderHtml(group) {
+      const dishSubtotal = groupSubtotal(group);
+      const delivery = groupDeliveryDetail(group);
+      const distanceText = delivery.hasCoordinates ? `（${delivery.distance.toFixed(2)} km）` : '（暂无坐标，暂按起步价）';
+      return `<div class="flex-between mb-10">
+        <strong>${safeText(group.merchant_name)}</strong>
+        <span class="text-muted cart-group-summary" data-merchant-id="${group.merchant_id}" data-include-total="1">
+          ${cartGroupSummaryText(group, true)}
+        </span>
+      </div>`;
+    }
+
+    function cartItemHtml(id, item) {
+      const subtotal = Number(item.price || 0) * Number(item.quantity || 0);
+      return `<div class="cart-item">
+        <div><strong>${safeText(item.dish_name)}</strong><br><small class="text-muted">¥${money(item.price)} x ${item.quantity}</small></div>
+        <div class="cart-item-actions">
+          <button class="btn btn-sm btn-outline" onclick="changeCartQty(${id}, -1)">-</button>
+          <span>${item.quantity}</span>
+          <button class="btn btn-sm btn-outline" onclick="changeCartQty(${id}, 1)">+</button>
+          <strong>¥${money(subtotal)}</strong>
+        </div>
+      </div>`;
+    }
+
+    async function renderCartOnlyPage() {
+      await ensureCartMerchantLocations();
+      autoFillDefaultAddressIfEmpty();
+      const list = document.getElementById('dishList');
+      const groups = cartGroups();
+      if (!groups.length) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-icon">🛒</div><p>购物车为空</p></div>';
+        return;
+      }
+      list.innerHTML = `<div class="card"><div class="card-body">
+        ${groups.map(group => `
+          <div class="mb-20">
+            <div class="flex-between mb-10">
+              <h3>${safeText(group.merchant_name)}</h3>
+              <span class="text-muted cart-group-summary" data-merchant-id="${group.merchant_id}" data-prefix="按该商家生成 1 个订单 · ">按该商家生成 1 个订单 · ${cartGroupSummaryText(group)}</span>
+            </div>
+            ${group.items.map(([id, item]) => cartItemHtml(id, item)).join('')}
+          </div>
+        `).join('')}
+        <button class="btn btn-primary btn-block" onclick="showCart()">填写收货信息并提交</button>
+      </div></div>`;
+    }
+
+    function cartGroupSummaryText(group, includeTotal = false) {
+      const delivery = groupDeliveryDetail(group);
+      const distanceText = delivery.hasCoordinates ? `（${delivery.distance.toFixed(2)} km）` : '（暂无坐标，暂按起步价）';
+      const dishSubtotal = groupSubtotal(group);
+      const text = `商品 ¥${money(dishSubtotal)} + 配送费 ¥${money(delivery.fee)} ${distanceText}`;
+      return includeTotal ? `${text} = 小计 ¥${money(dishSubtotal + delivery.fee)}` : text;
+    }
+
+    function changeCartQty(dishId, delta) {
+      if(!cart[dishId]) return;
+      if(delta > 0 && cart[dishId].quantity + delta > Number(cart[dishId].stock || 0)) return showCenterToast('库存不足', 'warning');
+      cart[dishId].quantity += delta;
+      if(cart[dishId].quantity <= 0) delete cart[dishId];
+      saveCart();
+      updateCartCount();
+      if (!document.getElementById('cartModal').classList.contains('hidden')) showCart();
+      if (!merchantId) renderCartOnlyPage();
+    }
+
+    function closeCart(){ document.getElementById('cartModal').classList.add('hidden'); }
+
+    function setAddressInputs(address) {
+      document.getElementById('receiverName').value = address.receiver || '';
+      document.getElementById('receiverPhone').value = address.phone || '';
+      document.getElementById('receiverAddress').value = address.detail || '';
+      document.getElementById('receiverLatitude').value = address.latitude || '';
+      document.getElementById('receiverLongitude').value = address.longitude || '';
+      document.getElementById('receiverLocationName').value = address.locationName || '';
+      refreshDeliveryFee();
+    }
+
+    function autoFillDefaultAddressIfEmpty() {
+      if (!defaultAddress) return;
+      const name = document.getElementById('receiverName').value.trim();
+      const phone = document.getElementById('receiverPhone').value.trim();
+      const detail = document.getElementById('receiverAddress').value.trim();
+      if (!name && !phone && !detail) setAddressInputs(defaultAddress);
+    }
+
+    function fillDefaultAddress() {
+      if (!defaultAddress || !defaultAddress.receiver || !defaultAddress.phone || !defaultAddress.detail) {
+        showToast('当前账号还没有默认收货地址，请手动填写', 'warning');
+        return;
+      }
+      setAddressInputs(defaultAddress);
+      showToast('已填入默认地址');
+    }
+
+    async function placeOrder() {
+      // 多商家购物车一次提交，后端按商家拆成多个订单，再统一批量支付。
+      const groups = cartGroups();
+      if(groups.length === 0) return showCenterToast('购物车为空', 'error');
+      const violation = findDeliveryDistanceViolation(groups);
+      if (violation) {
+        return showCenterToast(`${violation.group.merchant_name} 距离收货地址 ${violation.delivery.distance.toFixed(2)} km，超过100km，无法下单`, 'error');
+      }
+      const tablewareCount = parseInt(document.getElementById('tablewareCount').value) || 0;
+      if(tablewareCount < 1) return showCenterToast('餐具份数至少为 1', 'warning');
+      const payPassword = document.getElementById('payPassword').value.trim();
+      if(!payPassword) return showCenterToast('请输入支付密码', 'warning');
+      const data = {
+        orders: groups.map(group => ({
+          merchant_id: group.merchant_id,
+          items: group.items.map(([id, item]) => ({ dish_id: parseInt(id), quantity: item.quantity, specification: item.specification }))
+        })),
+        receiver_name: document.getElementById('receiverName').value.trim(),
+        receiver_phone: document.getElementById('receiverPhone').value.trim(),
+        receiver_address: document.getElementById('receiverAddress').value.trim(),
+        receiver_latitude: document.getElementById('receiverLatitude').value,
+        receiver_longitude: document.getElementById('receiverLongitude').value,
+        receiver_location_name: document.getElementById('receiverLocationName').value,
+        tableware_count: tablewareCount
+      };
+      const res = await api.post('/user/orders', data);
+      if(res.code === 200){
+        const count = res.data && Array.isArray(res.data.order_ids) ? res.data.order_ids.length : groups.length;
+        const orderIds = res.data && Array.isArray(res.data.order_ids) ? res.data.order_ids : (res.data && res.data.order_id ? [res.data.order_id] : []);
+        const payRes = await api.put('/user/orders/pay-batch', {
+          order_ids: orderIds,
+          pay_method: document.getElementById('payMethod').value,
+          pay_status: 1,
+          pay_password: payPassword
+        });
+        if(payRes.code !== 200) {
+          showCenterToast(`已按商家生成 ${count} 个订单，但支付失败：${payRes.message || '请到我的订单中重新支付'}`, 'error');
+          cart = {};
+          saveCart();
+          updateCartCount();
+          window.location.href = 'orders.html';
+          return;
+        }
+        showToast(`支付成功，已按商家生成 ${count} 个订单`);
+        cart = {};
+        saveCart();
+        updateCartCount();
+        closeCart();
+        window.location.href = 'orders.html';
+      } else {
+        showCenterToast(res.message || '下单失败，请稍后重试', 'error');
+      }
+    }
+
+    async function loadUserInfo() {
+      const u = await checkRole('user');
+      if (u) document.getElementById('userInfo').textContent = '👤 ' + u.username;
+      const p = await api.get('/user/profile');
+      if (p.code === 200 && p.data) {
+        defaultAddress = {
+          receiver: p.data.default_receiver || p.data.real_name || '',
+          phone: p.data.default_phone || p.data.phone || '',
+          detail: p.data.default_address || '',
+          latitude: p.data.default_latitude || '',
+          longitude: p.data.default_longitude || '',
+          locationName: p.data.default_location_name || ''
+        };
+      }
+    }
+
+    async function doLogout(){ await auth.logout('user'); window.location.href='../../index.html'; }
+
+    AddressPicker.init({
+      buttonId: 'receiverMapBtn',
+      addressInputId: 'receiverAddress',
+      latInputId: 'receiverLatitude',
+      lngInputId: 'receiverLongitude',
+      nameInputId: 'receiverLocationName'
+    });
+    document.getElementById('receiverAddress').addEventListener('address-picked', refreshDeliveryFee);
+    document.getElementById('receiverAddress').addEventListener('change', refreshDeliveryFee);
+    async function initPage() {
+      loadSavedCart();
+      updateCartCount();
+      await loadUserInfo();
+      await loadDishes();
+    }
+    initPage();
+  </script>
+</body>
+</html>

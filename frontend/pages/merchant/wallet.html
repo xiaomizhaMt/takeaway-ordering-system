@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>钱包 - 商家后台</title>
+  <link rel="stylesheet" href="../../css/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🏪 商家后台</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="dishes.html">菜品管理</a></li>
+      <li><a href="orders.html">订单管理</a></li>
+      <li><a href="reviews.html">评价管理</a></li>
+      <li><a href="statistics.html">经营统计</a></li>
+      <li><a href="wallet.html" class="active">钱包</a></li>
+    </ul>
+    <div class="navbar-right"><span class="user-info" id="userInfo"></span><a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a></div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header"><h2>💳 商家钱包</h2><button class="btn btn-outline" onclick="loadWallet()">刷新</button></div>
+    <div class="grid grid-3 mb-20">
+      <div class="card"><div class="card-body stat-card"><div class="stat-icon">💰</div><div class="stat-number" id="walletBalance">¥0.00</div><div class="stat-label">可提现余额</div></div></div>
+      <div class="card"><div class="card-body stat-card"><div class="stat-icon">📈</div><div class="stat-number" id="totalIncome">¥0.00</div><div class="stat-label">累计入账</div></div></div>
+      <div class="card"><div class="card-body stat-card"><div class="stat-icon">🏦</div><div class="stat-number" id="totalWithdraw">¥0.00</div><div class="stat-label">累计提现</div></div></div>
+    </div>
+    <div class="card mb-20">
+      <div class="card-header">提现</div>
+      <div class="card-body">
+        <div class="flex gap-10" style="flex-wrap:wrap;align-items:center">
+          <input type="number" class="form-control" id="withdrawAmount" min="0.01" step="0.01" placeholder="提现金额" style="width:180px">
+          <select class="form-control" id="withdrawChannel" style="width:150px">
+            <option value="bank_card">银行卡</option>
+            <option value="alipay">支付宝</option>
+          </select>
+          <button class="btn btn-primary" onclick="withdraw()">确认提现</button>
+        </div>
+      </div>
+    </div>
+    <div class="card"><div class="card-header">资金流水</div><div id="transactionList" class="loading"><div class="spinner"></div></div></div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    const TX_LABEL = { merchant_income:'订单入账', withdraw:'提现', refund:'退款', recharge:'充值', payment:'支付', rider_income:'配送收益' };
+    function money(v){ return Number(v || 0).toFixed(2); }
+    function txLabel(type){ return TX_LABEL[type] || type || '-'; }
+    function signedAmount(v){ const n = Number(v || 0); return `${n >= 0 ? '+' : '-'}¥${money(Math.abs(n))}`; }
+    function renderTransactions(rows){
+      if(!rows || rows.length === 0) return '<div class="empty-state"><div class="empty-icon">💳</div><p>暂无资金流水</p></div>';
+      return `<div class="table-container"><table><tr><th>时间</th><th>类型</th><th>金额</th><th>余额</th><th>渠道</th><th>关联订单</th><th>备注</th></tr>${rows.map(t=>`
+        <tr><td>${new Date(t.create_time).toLocaleString()}</td><td>${txLabel(t.transaction_type)}</td><td class="${Number(t.amount) >= 0 ? 'text-success' : 'text-danger'}">${signedAmount(t.amount)}</td><td>¥${money(t.balance_after)}</td><td>${payMethodLabel(t.pay_channel)}</td><td>${t.related_order_id || '-'}</td><td>${t.remark || '-'}</td></tr>`).join('')}</table></div>`;
+    }
+    async function loadWallet(){
+      const res = await api.get('/merchant/wallet');
+      if(res.code !== 200){ showToast(res.message, 'error'); return; }
+      const d = res.data || {}, s = d.summary || {};
+      document.getElementById('walletBalance').textContent = `¥${money(d.balance)}`;
+      document.getElementById('totalIncome').textContent = `¥${money(s.total_income)}`;
+      document.getElementById('totalWithdraw').textContent = `¥${money(s.total_withdraw)}`;
+      document.getElementById('transactionList').innerHTML = renderTransactions(d.transactions || []);
+    }
+    async function withdraw(){
+      const amount = document.getElementById('withdrawAmount').value;
+      if(!amount || Number(amount) <= 0){ showToast('请输入有效提现金额', 'warning'); return; }
+      const res = await api.post('/merchant/wallet/withdraw', { amount, pay_channel: document.getElementById('withdrawChannel').value });
+      if(res.code === 200){ showToast('提现成功', 'success'); document.getElementById('withdrawAmount').value=''; loadWallet(); }
+      else showToast(res.message, 'error');
+    }
+    async function loadUserInfo(){ const u=await checkRole('merchant'); if(u) document.getElementById('userInfo').textContent='🏪 '+u.username; }
+    async function doLogout(){ await auth.logout('merchant'); window.location.href='../../index.html'; }
+    loadUserInfo(); loadWallet();
+  </script>
+</body>
+</html>

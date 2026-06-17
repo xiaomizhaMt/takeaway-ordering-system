@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>注册 - 外卖订餐管理系统</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <h2>📝 注册</h2>
+
+      <div class="role-tabs">
+        <button class="role-tab active" onclick="switchRole('user', this)">用户</button>
+        <button class="role-tab" onclick="switchRole('merchant', this)">商家</button>
+        <button class="role-tab" onclick="switchRole('rider', this)">配送员</button>
+      </div>
+
+      <div class="form-group"><label>账号 *</label><input type="text" class="form-control" id="regUsername" placeholder="请设置登录账号"></div>
+      <div class="form-group"><label>密码 *</label><input type="password" class="form-control" id="regPassword" placeholder="请设置登录密码"></div>
+      <div class="form-group"><label>确认密码 *</label><input type="password" class="form-control" id="regConfirmPwd" placeholder="请再次输入密码"></div>
+
+      <div id="userPayFields">
+        <div class="form-group"><label>支付密码 *</label><input type="password" class="form-control" id="regPayPassword" placeholder="请设置支付密码"></div>
+        <div class="form-group"><label>确认支付密码 *</label><input type="password" class="form-control" id="regConfirmPayPwd" placeholder="请再次输入支付密码"></div>
+      </div>
+
+      <div class="form-group"><label id="nameLabel">真实姓名 *</label><input type="text" class="form-control" id="regName" placeholder="请输入姓名"></div>
+      <div class="form-group"><label>手机号 *</label><input type="text" class="form-control" id="regPhone" placeholder="请输入手机号"></div>
+
+      <div id="riderFields" class="hidden">
+        <div class="form-group"><label>身份证号 *</label><input type="text" class="form-control" id="regIdCard" placeholder="请输入身份证号"></div>
+      </div>
+
+      <div id="merchantFields" class="hidden">
+        <div class="form-group"><label>店铺名称 *</label><input type="text" class="form-control" id="regShopName" placeholder="请输入店铺名称"></div>
+        <div class="form-group"><label>商家类型 *</label>
+          <select class="form-control" id="regMerchantType">
+            <option value="">请选择商家类型</option>
+            <option value="奶茶咖啡">奶茶咖啡</option>
+            <option value="汉堡快餐">汉堡快餐</option>
+            <option value="米粉汤面">米粉汤面</option>
+            <option value="烧烤小吃">烧烤小吃</option>
+            <option value="粥食甜品">粥食甜品</option>
+            <option value="热炒正餐">热炒正餐</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>店铺地址 *</label>
+          <input type="text" class="form-control" id="regShopAddress" placeholder="可手动输入地址，也可使用地图选点">
+          <input type="hidden" id="regShopLatitude">
+          <input type="hidden" id="regShopLongitude">
+          <input type="hidden" id="regShopLocationName">
+          <button type="button" class="btn btn-sm btn-outline mt-10" id="regShopMapBtn">地图选点</button>
+        </div>
+        <div class="form-group"><label>店铺简介</label><textarea class="form-control" id="regShopDesc" rows="2" placeholder="请输入店铺简介（选填）"></textarea></div>
+      </div>
+
+      <button class="btn btn-primary btn-block btn-lg" onclick="doRegister()">注册</button>
+      <div class="auth-footer">已有账号？<a href="index.html">立即登录</a></div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/map-config.js?v=20260516f"></script>
+  <script src="js/map-picker.js?v=20260517b"></script>
+  <script>
+    let currentRole = 'user';
+    const roleParam = new URLSearchParams(window.location.search).get('role');
+    if (roleParam && ['user', 'merchant', 'rider'].includes(roleParam)) currentRole = roleParam;
+
+    function switchRole(role, btn) {
+      currentRole = role;
+      document.querySelectorAll('.role-tab').forEach(el => el.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      document.getElementById('userPayFields').classList.toggle('hidden', role !== 'user');
+      document.getElementById('riderFields').classList.toggle('hidden', role !== 'rider');
+      document.getElementById('merchantFields').classList.toggle('hidden', role !== 'merchant');
+      document.getElementById('nameLabel').textContent = role === 'merchant' ? '联系人姓名 *' : role === 'rider' ? '配送员姓名 *' : '真实姓名 *';
+    }
+
+    function initRoleTab() {
+      const roles = ['user', 'merchant', 'rider'];
+      const buttons = document.querySelectorAll('.role-tab');
+      switchRole(currentRole, buttons[roles.indexOf(currentRole) >= 0 ? roles.indexOf(currentRole) : 0]);
+    }
+
+    async function doRegister() {
+      const username = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const confirmPwd = document.getElementById('regConfirmPwd').value;
+      const name = document.getElementById('regName').value.trim();
+      const phone = document.getElementById('regPhone').value.trim();
+      if (!username || !password || !phone || !name) return showToast('请填写所有必填项', 'warning');
+      if (password !== confirmPwd) return showToast('两次密码输入不一致', 'warning');
+      if (password.length < 6) return showToast('密码长度不能少于 6 位', 'warning');
+
+      let extraData = {};
+      if (currentRole === 'user') {
+        const payPassword = document.getElementById('regPayPassword').value;
+        const confirmPayPwd = document.getElementById('regConfirmPayPwd').value;
+        if (!payPassword || !confirmPayPwd) return showToast('请设置支付密码', 'warning');
+        if (payPassword !== confirmPayPwd) return showToast('两次支付密码输入不一致', 'warning');
+        extraData = { pay_password: payPassword };
+      } else if (currentRole === 'merchant') {
+        const shopName = document.getElementById('regShopName').value.trim();
+        const merchantType = document.getElementById('regMerchantType').value;
+        const shopAddress = document.getElementById('regShopAddress').value.trim();
+        if (!shopName || !merchantType || !shopAddress) return showToast('请填写店铺名称、商家类型和店铺地址', 'warning');
+        extraData = {
+          shop_name: shopName,
+          merchant_type: merchantType,
+          shop_address: shopAddress,
+          shop_latitude: document.getElementById('regShopLatitude').value,
+          shop_longitude: document.getElementById('regShopLongitude').value,
+          shop_location_name: document.getElementById('regShopLocationName').value,
+          shop_desc: document.getElementById('regShopDesc').value.trim()
+        };
+      } else {
+        const idCard = document.getElementById('regIdCard').value.trim();
+        if (!idCard) return showToast('请填写身份证号', 'warning');
+        extraData = { id_card: idCard };
+      }
+
+      const res = await auth.register(username, password, name, phone, currentRole, extraData);
+      if (res.code !== 200) return showToast(res.message, 'error');
+      if (currentRole === 'user') {
+        showToast('用户注册成功，正在自动登录');
+        const loginRes = await auth.login(username, password, currentRole);
+        setTimeout(() => window.location.href = loginRes.code === 200 ? 'pages/user/dashboard.html' : 'index.html?role=user', 600);
+      } else {
+        showToast(res.message || '注册成功，请等待平台审核');
+        setTimeout(() => window.location.href = `index.html?role=${currentRole}`, 1200);
+      }
+    }
+
+    initRoleTab();
+    AddressPicker.init({
+      buttonId: 'regShopMapBtn',
+      addressInputId: 'regShopAddress',
+      latInputId: 'regShopLatitude',
+      lngInputId: 'regShopLongitude',
+      nameInputId: 'regShopLocationName'
+    });
+  </script>
+</body>
+</html>

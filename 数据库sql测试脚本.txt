@@ -1,0 +1,308 @@
+-- =============================================
+-- 外卖订餐管理系统测试数据与验证查询脚本
+-- 适用前提：请先执行《外卖订餐管理系统_数据库脚本_收敛版.sql》
+-- 适用数据库：MySQL 8.0+
+-- 用途：用于课程设计验收、联调演示、队友查看数据库效果
+-- =============================================
+
+USE takeaway_ordering_system;
+
+-- =============================================
+-- 1. 清理测试数据（按外键依赖顺序）
+-- 说明：部分客户端开启了安全更新模式，这里先临时关闭再恢复
+-- =============================================
+SET SQL_SAFE_UPDATES = 0;
+
+DELETE FROM `Review`;
+DELETE FROM `Delivery`;
+DELETE FROM `Order_Item`;
+DELETE FROM `Order_Info`;
+DELETE FROM `Dish`;
+DELETE FROM `Rider`;
+DELETE FROM `Merchant`;
+DELETE FROM `User`;
+
+SET SQL_SAFE_UPDATES = 1;
+
+-- 可选：重置自增主键，方便演示时编号整齐
+ALTER TABLE `User` AUTO_INCREMENT = 1;
+ALTER TABLE `Merchant` AUTO_INCREMENT = 1;
+ALTER TABLE `Rider` AUTO_INCREMENT = 1;
+ALTER TABLE `Dish` AUTO_INCREMENT = 1;
+ALTER TABLE `Order_Info` AUTO_INCREMENT = 1;
+ALTER TABLE `Order_Item` AUTO_INCREMENT = 1;
+ALTER TABLE `Delivery` AUTO_INCREMENT = 1;
+ALTER TABLE `Review` AUTO_INCREMENT = 1;
+
+-- =============================================
+-- 2. 插入用户测试数据
+-- =============================================
+INSERT INTO `User`
+(`username`, `password`, `real_name`, `phone`, `default_receiver`, `default_phone`, `default_address`, `account_status`, `register_time`)
+VALUES
+('zhangsan', '123456', '张三', '13800000001', '张三', '13800000001', '软件园A区1栋101', 1, '2026-05-01 09:00:00'),
+('lisi', '123456', '李四', '13800000002', '李四', '13800000002', '大学城2号宿舍楼305', 1, '2026-05-01 09:10:00'),
+('wangwu', '123456', '王五', '13800000003', '王五', '13800000003', '创新港3号楼220', 1, '2026-05-01 09:20:00');
+
+-- =============================================
+-- 3. 插入商家测试数据
+-- =============================================
+INSERT INTO `Merchant`
+(`account`, `password`, `shop_name`, `contact_name`, `contact_phone`, `shop_address`, `business_hours`, `shop_desc`, `business_status`, `audit_status`, `audit_time`)
+VALUES
+('merchant001', '123456', '川香小馆', '陈老板', '13900000001', '美食街1号', '09:00-21:00', '主打川菜盖饭与小炒', 1, 1, '2026-05-01 08:30:00'),
+('merchant002', '123456', '轻食沙拉坊', '刘经理', '13900000002', '美食街2号', '10:00-20:30', '主打轻食、沙拉、健康套餐', 1, 1, '2026-05-01 08:35:00');
+
+-- =============================================
+-- 4. 插入配送员测试数据
+-- =============================================
+INSERT INTO `Rider`
+(`account`, `password`, `rider_name`, `phone`, `id_card`, `work_status`, `audit_status`, `audit_time`, `register_time`)
+VALUES
+('rider001', '123456', '赵骑手', '13700000001', '410101199901010011', 1, 1, '2026-05-01 08:40:00', '2026-05-01 08:00:00'),
+('rider002', '123456', '钱骑手', '13700000002', '410101199902020022', 2, 1, '2026-05-01 08:45:00', '2026-05-01 08:05:00');
+
+-- =============================================
+-- 5. 插入菜品测试数据
+-- =============================================
+INSERT INTO `Dish`
+(`merchant_id`, `category_name`, `image_url`, `dish_name`, `dish_desc`, `price`, `specification`, `stock`, `warning_stock`, `sale_status`, `sales_count`)
+VALUES
+(1, '盖饭', 'https://example.com/dish1.jpg', '鱼香肉丝盖饭', '招牌鱼香肉丝配米饭', 18.00, '标准份', 100, 10, 1, 56),
+(1, '小吃', 'https://example.com/dish2.jpg', '红糖糍粑', '现炸糍粑配红糖', 8.00, '1份', 50, 5, 1, 23),
+(1, '饮品', 'https://example.com/dish3.jpg', '酸梅汤', '冰镇酸梅汤', 4.00, '500ml', 80, 10, 1, 35),
+(2, '沙拉', 'https://example.com/dish4.jpg', '鸡胸肉沙拉', '低脂高蛋白轻食沙拉', 22.00, '标准份', 60, 8, 1, 41),
+(2, '主食', 'https://example.com/dish5.jpg', '全麦三明治', '鸡蛋火腿全麦三明治', 16.00, '1份', 70, 10, 1, 28);
+
+-- =============================================
+-- 6. 插入订单测试数据
+-- 说明：覆盖“已完成”“配送中”“待接单”三种典型场景
+-- =============================================
+INSERT INTO `Order_Info`
+(`user_id`, `merchant_id`, `rider_id`, `receiver_name`, `receiver_phone`, `receiver_address`, `order_amount`, `delivery_fee`, `pay_status`, `pay_time`, `order_status`, `after_sale_status`, `create_time`, `accept_time`, `meal_ready_time`, `finish_time`)
+VALUES
+(1, 1, 1, '张三', '13800000001', '软件园A区1栋101', 38.00, 4.00, 1, '2026-05-03 11:00:00', 5, 0, '2026-05-03 10:58:00', '2026-05-03 11:02:00', '2026-05-03 11:15:00', '2026-05-03 11:45:00'),
+(2, 2, 2, '李四', '13800000002', '大学城2号宿舍楼305', 42.00, 4.00, 1, '2026-05-03 12:00:00', 4, 0, '2026-05-03 11:58:00', '2026-05-03 12:03:00', '2026-05-03 12:18:00', NULL),
+(3, 1, NULL, '王五', '13800000003', '创新港3号楼220', 30.00, 4.00, 1, '2026-05-03 12:30:00', 1, 0, '2026-05-03 12:28:00', NULL, NULL, NULL);
+
+-- =============================================
+-- 7. 插入订单明细测试数据
+-- 金额校验：订单1(18+16+4=38)，订单2(22+16+4=42)，订单3(18+8+4=30)
+-- =============================================
+INSERT INTO `Order_Item`
+(`order_id`, `dish_id`, `quantity`, `unit_price`, `specification`, `subtotal`)
+VALUES
+(1, 1, 1, 18.00, '标准份', 18.00),
+(1, 2, 2, 8.00, '1份', 16.00),
+(2, 4, 1, 22.00, '标准份', 22.00),
+(2, 5, 1, 16.00, '1份', 16.00),
+(3, 1, 1, 18.00, '标准份', 18.00),
+(3, 2, 1, 8.00, '1份', 8.00);
+
+-- =============================================
+-- 8. 插入配送测试数据
+-- 说明：订单1已完成配送，订单2配送中，订单3尚未分配配送员，因此不插配送记录
+-- =============================================
+INSERT INTO `Delivery`
+(`order_id`, `rider_id`, `delivery_status`, `accept_time`, `pickup_time`, `delivered_time`, `exception_note`, `delivery_income`)
+VALUES
+(1, 1, 2, '2026-05-03 11:16:00', '2026-05-03 11:20:00', '2026-05-03 11:43:00', NULL, 6.00),
+(2, 2, 1, '2026-05-03 12:20:00', '2026-05-03 12:24:00', NULL, NULL, 6.50);
+
+-- =============================================
+-- 9. 插入评价测试数据
+-- 说明：仅已完成订单可评价
+-- =============================================
+INSERT INTO `Review`
+(`order_id`, `user_id`, `merchant_id`, `rider_id`, `dish_score`, `delivery_score`, `review_type`, `content`, `merchant_reply`, `review_time`)
+VALUES
+(1, 1, 1, 1, 5, 5, 1, '味道很好，配送也很快，下次还会再点。', '感谢您的支持，欢迎再次光临。', '2026-05-03 12:00:00');
+
+-- =============================================
+-- 10. 基础验证查询：检查各表是否成功插入数据
+-- =============================================
+SELECT 'User' AS table_name, COUNT(*) AS row_count FROM `User`
+UNION ALL
+SELECT 'Merchant', COUNT(*) FROM `Merchant`
+UNION ALL
+SELECT 'Rider', COUNT(*) FROM `Rider`
+UNION ALL
+SELECT 'Dish', COUNT(*) FROM `Dish`
+UNION ALL
+SELECT 'Order_Info', COUNT(*) FROM `Order_Info`
+UNION ALL
+SELECT 'Order_Item', COUNT(*) FROM `Order_Item`
+UNION ALL
+SELECT 'Delivery', COUNT(*) FROM `Delivery`
+UNION ALL
+SELECT 'Review', COUNT(*) FROM `Review`;
+
+-- =============================================
+-- 11. 业务验证查询一：查看用户订单列表
+-- 用途：验证用户 -> 订单 的1:N关系是否正常
+-- =============================================
+SELECT
+  o.order_id,
+  u.username,
+  m.shop_name,
+  o.order_amount,
+  o.delivery_fee,
+  o.pay_status,
+  o.order_status,
+  o.create_time
+FROM `Order_Info` o
+JOIN `User` u ON o.user_id = u.user_id
+JOIN `Merchant` m ON o.merchant_id = m.merchant_id
+ORDER BY o.order_id;
+
+-- =============================================
+-- 12. 业务验证查询二：查看订单明细
+-- 用途：验证订单与菜品通过订单明细形成的M:N关系
+-- =============================================
+SELECT
+  oi.order_id,
+  d.dish_name,
+  oi.quantity,
+  oi.unit_price,
+  oi.subtotal
+FROM `Order_Item` oi
+JOIN `Dish` d ON oi.dish_id = d.dish_id
+ORDER BY oi.order_id, oi.order_item_id;
+
+-- =============================================
+-- 13. 业务验证查询三：查看商家订单
+-- 用途：验证商家查看订单场景
+-- =============================================
+SELECT
+  m.shop_name,
+  o.order_id,
+  u.real_name AS customer_name,
+  o.order_amount,
+  o.order_status,
+  o.accept_time,
+  o.meal_ready_time
+FROM `Order_Info` o
+JOIN `Merchant` m ON o.merchant_id = m.merchant_id
+JOIN `User` u ON o.user_id = u.user_id
+ORDER BY m.merchant_id, o.order_id;
+
+-- =============================================
+-- 14. 业务验证查询四：查看配送任务
+-- 用途：验证配送记录与骑手关联是否正常
+-- =============================================
+SELECT
+  dly.delivery_id,
+  dly.order_id,
+  r.rider_name,
+  m.shop_name,
+  u.real_name AS customer_name,
+  dly.delivery_status,
+  dly.accept_time,
+  dly.pickup_time,
+  dly.delivered_time
+FROM `Delivery` dly
+JOIN `Rider` r ON dly.rider_id = r.rider_id
+JOIN `Order_Info` o ON dly.order_id = o.order_id
+JOIN `Merchant` m ON o.merchant_id = m.merchant_id
+JOIN `User` u ON o.user_id = u.user_id
+ORDER BY dly.delivery_id;
+
+-- =============================================
+-- 15. 业务验证查询五：查看评价信息
+-- 用途：验证订单、用户、商家、配送员、评价之间的关系
+-- =============================================
+SELECT
+  rv.review_id,
+  rv.order_id,
+  u.real_name AS user_name,
+  m.shop_name,
+  r.rider_name,
+  rv.dish_score,
+  rv.delivery_score,
+  rv.review_type,
+  rv.content,
+  rv.merchant_reply,
+  rv.review_time
+FROM `Review` rv
+JOIN `User` u ON rv.user_id = u.user_id
+JOIN `Merchant` m ON rv.merchant_id = m.merchant_id
+LEFT JOIN `Rider` r ON rv.rider_id = r.rider_id
+ORDER BY rv.review_id;
+
+-- =============================================
+-- 16. 业务验证查询六：校验订单金额是否正确
+-- 规则：订单总金额 = 明细小计汇总 + 配送费
+-- 返回结果中 amount_check 应为“正确”
+-- =============================================
+SELECT
+  o.order_id,
+  SUM(oi.subtotal) AS item_total,
+  o.delivery_fee,
+  o.order_amount,
+  CASE
+    WHEN SUM(oi.subtotal) + o.delivery_fee = o.order_amount THEN '正确'
+    ELSE '错误'
+  END AS amount_check
+FROM `Order_Info` o
+JOIN `Order_Item` oi ON o.order_id = oi.order_id
+GROUP BY o.order_id, o.delivery_fee, o.order_amount
+ORDER BY o.order_id;
+
+-- =============================================
+-- 17. 业务验证查询七：检查订单与配送员字段是否一致
+-- 规则：Order_Info.rider_id 与 Delivery.rider_id 应保持一致
+-- 返回结果中 rider_check 应为“一致”
+-- =============================================
+SELECT
+  o.order_id,
+  o.rider_id AS order_rider_id,
+  dly.rider_id AS delivery_rider_id,
+  CASE
+    WHEN o.rider_id = dly.rider_id THEN '一致'
+    ELSE '不一致'
+  END AS rider_check
+FROM `Order_Info` o
+JOIN `Delivery` dly ON o.order_id = dly.order_id
+ORDER BY o.order_id;
+
+-- =============================================
+-- 18. 业务验证查询八：查看当前未分配配送员的订单
+-- 用途：验证 rider_id 可为空的业务场景
+-- =============================================
+SELECT
+  o.order_id,
+  u.real_name AS user_name,
+  m.shop_name,
+  o.order_status,
+  o.create_time
+FROM `Order_Info` o
+JOIN `User` u ON o.user_id = u.user_id
+JOIN `Merchant` m ON o.merchant_id = m.merchant_id
+WHERE o.rider_id IS NULL
+ORDER BY o.order_id;
+
+-- =============================================
+-- 19. 业务验证查询九：查看商家评价列表
+-- 用途：验证 Review(merchant_id, review_time) 索引对应的查询场景
+-- =============================================
+SELECT
+  m.shop_name,
+  rv.review_id,
+  rv.order_id,
+  rv.dish_score,
+  rv.delivery_score,
+  rv.content,
+  rv.review_time
+FROM `Review` rv
+JOIN `Merchant` m ON rv.merchant_id = m.merchant_id
+WHERE rv.merchant_id = 1
+ORDER BY rv.review_time DESC;
+
+-- =============================================
+-- 20. 演示说明（给队友看的重点）
+-- =============================================
+-- 1）本脚本共插入：3个用户、2个商家、2个配送员、5个菜品、3张订单、6条订单明细、2条配送记录、1条评价记录。
+-- 2）测试数据覆盖了三种典型订单状态：已完成、配送中、待接单。
+-- 3）订单3未分配配送员，用于验证 Order_Info.rider_id 可为空的设计。
+-- 4）查询16用于校验订单金额是否正确；查询17用于校验订单表和配送表的骑手是否一致。
+-- 5）如果查询16全部显示“正确”、查询17全部显示“一致”，说明当前测试数据与数据库设计保持一致。

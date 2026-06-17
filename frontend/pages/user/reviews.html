@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的评价 - 外卖订餐管理系统</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <style>
+    .dish-review-fields { margin-top:12px; padding:12px; border:1px solid var(--border); border-radius:8px; background:#fafafa; }
+    .dish-review-field { margin-top:10px; }
+    .dish-review-field:first-child { margin-top:0; }
+    .dish-review-field label { display:flex; justify-content:space-between; gap:8px; font-size:.9rem; }
+    .review-scope-line { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">🍱 外卖订餐</div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html">首页</a></li>
+      <li><a href="orders.html">我的订单</a></li>
+      <li><a href="reviews.html" class="active">我的评价</a></li>
+      <li><a href="wallet.html">我的钱包</a></li>
+    </ul>
+    <div class="navbar-right">
+      <span class="user-info" id="userInfo"></span>
+      <a href="javascript:void(0)" class="btn btn-outline btn-sm" onclick="doLogout()">退出</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h2>⭐ 我的评价</h2>
+        <div class="text-muted" style="font-size:.9rem;margin-top:4px">支持按订单号、商家、评价类型、回复状态和时间范围查询。</div>
+      </div>
+    </div>
+
+    <div class="card mb-20">
+      <div class="card-body" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;align-items:center">
+        <input type="text" class="form-control" id="reviewKeyword" placeholder="订单号/商家/内容" style="width:190px" onkeydown="if(event.key==='Enter') loadReviews()">
+        <select class="form-control" id="reviewTypeFilter" style="width:130px" onchange="loadReviews()">
+          <option value="">全部类型</option>
+          <option value="1">普通评价</option>
+          <option value="2">投诉</option>
+        </select>
+        <select class="form-control" id="replyStatusFilter" style="width:130px" onchange="loadReviews()">
+          <option value="">全部回复</option>
+          <option value="unreplied">未回复</option>
+          <option value="replied">已回复</option>
+        </select>
+        <input type="date" class="form-control" id="startDate" style="width:145px" onchange="loadReviews()">
+        <input type="date" class="form-control" id="endDate" style="width:145px" onchange="loadReviews()">
+        <button class="btn btn-primary" onclick="loadReviews()">查询</button>
+        <button class="btn btn-outline" onclick="resetReviewQuery()">重置</button>
+      </div>
+    </div>
+
+    <div id="reviewList" class="loading"><div class="spinner"></div><p>加载中...</p></div>
+  </div>
+
+  <div id="reviewModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">📝 写评价</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="form-group">
+        <label>菜品评分</label>
+        <div class="star-rating" id="dishStar">
+          <span class="star active" data-value="1" onclick="setStar('dishScore',1)">★</span>
+          <span class="star active" data-value="2" onclick="setStar('dishScore',2)">★</span>
+          <span class="star active" data-value="3" onclick="setStar('dishScore',3)">★</span>
+          <span class="star active" data-value="4" onclick="setStar('dishScore',4)">★</span>
+          <span class="star active" data-value="5" onclick="setStar('dishScore',5)">★</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>配送评分</label>
+        <div class="star-rating" id="deliveryStar">
+          <span class="star active" data-value="1" onclick="setStar('deliveryScore',1)">★</span>
+          <span class="star active" data-value="2" onclick="setStar('deliveryScore',2)">★</span>
+          <span class="star active" data-value="3" onclick="setStar('deliveryScore',3)">★</span>
+          <span class="star active" data-value="4" onclick="setStar('deliveryScore',4)">★</span>
+          <span class="star active" data-value="5" onclick="setStar('deliveryScore',5)">★</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>评价类型</label>
+        <select class="form-control" id="reviewType">
+          <option value="1">普通评价</option>
+          <option value="2">投诉</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>订单整体评价内容</label>
+        <textarea class="form-control" id="reviewContent" rows="3"></textarea>
+      </div>
+      <div class="form-group dish-review-fields" id="dishReviewFields" style="display:none"></div>
+      <button class="btn btn-primary btn-block" onclick="submitReview()">提交评价</button>
+    </div>
+  </div>
+
+  <script src="../../js/api.js"></script>
+  <script>
+    let currentOrderId = null;
+    let currentOrderItems = [];
+    let formData = { dish_score: 5, delivery_score: 5 };
+    let editingReviewId = null;
+    const urlOrderId = new URLSearchParams(window.location.search).get('order_id');
+
+    function scoreFieldFromType(type) {
+      return type === 'deliveryScore' || type === 'delivery_score' ? 'delivery_score' : 'dish_score';
+    }
+
+    function updateStarDisplay(type, val) {
+      const field = scoreFieldFromType(type);
+      const container = document.getElementById(field === 'dish_score' ? 'dishStar' : 'deliveryStar');
+      container.querySelectorAll('.star').forEach(s => s.classList.toggle('active', parseInt(s.dataset.value) <= Number(val)));
+    }
+
+    function setStar(type, val) {
+      const field = scoreFieldFromType(type);
+      formData[field] = Number(val);
+      updateStarDisplay(field, val);
+    }
+
+    function closeModal() {
+      document.getElementById('reviewModal').classList.add('hidden');
+      currentOrderId = null;
+      currentOrderItems = [];
+      editingReviewId = null;
+      document.getElementById('dishReviewFields').style.display = 'none';
+      document.getElementById('dishReviewFields').innerHTML = '';
+    }
+
+    function renderStars(score) {
+      const n = Number(score || 0);
+      return '★'.repeat(n) + '☆'.repeat(5 - n);
+    }
+
+    function safeText(value) {
+      return String(value ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    }
+
+    function reviewScopeHtml(r) {
+      if (r.dish_id) {
+        return `<div class="review-scope-line"><span class="badge badge-secondary">单品评价</span><span>${safeText(r.review_dish_name || '指定菜品')}</span></div>`;
+      }
+      return '<div class="review-scope-line"><span class="badge badge-secondary">订单整体评价</span></div>';
+    }
+
+    function reviewTypeText(type) {
+      return type === 2 ? '投诉' : '普通评价';
+    }
+
+    async function loadReviews() {
+      const cont = document.getElementById('reviewList');
+      cont.className = 'loading';
+      cont.innerHTML = '<div class="spinner"></div><p>加载中...</p>';
+      try {
+        const res = await api.get('/user/reviews', {
+          keyword: document.getElementById('reviewKeyword').value.trim(),
+          review_type: document.getElementById('reviewTypeFilter').value,
+          reply_status: document.getElementById('replyStatusFilter').value,
+          start_date: document.getElementById('startDate').value,
+          end_date: document.getElementById('endDate').value
+        });
+        if (res.code !== 200) {
+          cont.className = 'empty-state';
+          cont.innerHTML = `<div class="empty-icon">⚠</div><p>${res.message || '加载失败'}</p>`;
+          return;
+        }
+        const reviews = Array.isArray(res.data) ? [...res.data].sort((a, b) => new Date(b.review_time) - new Date(a.review_time)) : [];
+        if (!reviews.length) {
+          cont.className = 'empty-state';
+          cont.innerHTML = '<div class="empty-icon">⭐</div><p>暂无评价</p>';
+          return;
+        }
+        cont.className = '';
+        cont.innerHTML = reviews.map(r => `
+          <div class="card mb-10">
+            <div class="card-body">
+              <div class="flex-between">
+                <div>
+                  <strong>${r.shop_name || ''}</strong>
+                  <span class="text-muted" style="font-size:0.85rem"> | 订单号：${r.order_id}</span>
+                </div>
+                <span class="text-muted">${r.review_time ? new Date(r.review_time).toLocaleString() : ''}</span>
+              </div>
+              ${reviewScopeHtml(r)}
+              <div class="mt-10" style="background:var(--light-gray);padding:10px;border-radius:8px">
+                <div><strong>订单菜品：</strong>${r.dish_summary || '暂无菜品信息'}</div>
+                <div class="text-muted" style="font-size:0.88rem;margin-top:4px">
+                  下单时间：${r.order_time ? new Date(r.order_time).toLocaleString() : '-'}　
+                  订单金额：¥${r.order_amount || '0.00'}　
+                  餐具：${r.tableware_count || 1} 份
+                </div>
+              </div>
+              <div class="mt-10">菜品评分：${renderStars(r.dish_score)}${r.delivery_score == null ? '' : ` | 配送评分：${renderStars(r.delivery_score)}`}</div>
+              <div class="mt-10"><span class="badge ${r.review_type === 2 ? 'badge-danger' : 'badge-primary'}">${reviewTypeText(r.review_type)}</span></div>
+              <p class="mt-10">${r.content || ''}</p>
+              ${r.merchant_reply ? `<div class="mt-10" style="background:var(--light-gray);padding:10px;border-radius:8px"><small class="text-muted">商家回复：</small>${r.merchant_reply}</div>` : ''}
+              <div class="mt-10">
+                ${!r.merchant_reply ? `<button class="btn btn-sm btn-outline" onclick="editReview(${r.review_id})">修改</button>` : ''}
+                <button class="btn btn-sm btn-danger" onclick="deleteReview(${r.review_id})">删除</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        cont.className = 'empty-state';
+        cont.innerHTML = '<div class="empty-icon">⚠</div><p>加载失败，请重试</p>';
+      }
+    }
+
+    async function loadOrderItemsForReview(orderId) {
+      currentOrderItems = [];
+      const box = document.getElementById('dishReviewFields');
+      box.style.display = 'none';
+      box.innerHTML = '';
+      const res = await api.get(`/user/orders/${orderId}`);
+      if (res.code !== 200 || !res.data || !Array.isArray(res.data.items)) return;
+      currentOrderItems = res.data.items;
+      if (!currentOrderItems.length) return;
+      box.style.display = '';
+      box.innerHTML = `
+        <div style="font-weight:600;margin-bottom:6px">单品评价（选填，不填则只提交订单整体评价）</div>
+        <div class="text-muted" style="font-size:.85rem;margin-bottom:8px">这里写的内容会显示到对应菜品的历史评价下。</div>
+        ${currentOrderItems.map(item => `
+          <div class="dish-review-field">
+            <label>
+              <span>${safeText(item.dish_name || '')}</span>
+              <span class="text-muted">x${item.quantity || 1}</span>
+            </label>
+            <textarea class="form-control dish-review-content" data-dish-id="${item.dish_id}" rows="2" placeholder="可选：单独评价这个菜品"></textarea>
+          </div>
+        `).join('')}`;
+    }
+
+    async function showReviewModal(orderId) {
+      currentOrderId = orderId;
+      editingReviewId = null;
+      document.getElementById('modalTitle').innerHTML = '📝 写评价';
+      formData.dish_score = 5;
+      formData.delivery_score = 5;
+      document.getElementById('reviewType').value = '1';
+      document.getElementById('reviewContent').value = '';
+      updateStarDisplay('dish_score', 5);
+      updateStarDisplay('delivery_score', 5);
+      await loadOrderItemsForReview(orderId);
+      document.getElementById('reviewModal').classList.remove('hidden');
+    }
+
+    async function submitReview() {
+      const data = {
+        order_id: currentOrderId,
+        dish_score: formData.dish_score,
+        delivery_score: formData.delivery_score,
+        review_type: parseInt(document.getElementById('reviewType').value),
+        content: document.getElementById('reviewContent').value
+      };
+      if (!editingReviewId) {
+        data.dish_reviews = Array.from(document.querySelectorAll('.dish-review-content'))
+          .map(el => ({ dish_id: parseInt(el.dataset.dishId), content: el.value.trim() }))
+          .filter(item => item.dish_id && item.content);
+      }
+      let res;
+      if (editingReviewId) {
+        res = await api.put(`/user/reviews/${editingReviewId}`, data);
+      } else {
+        if (!currentOrderId) return;
+        res = await api.post('/user/reviews', data);
+      }
+      if (res.code === 200) {
+        showToast(editingReviewId ? '修改成功' : '评价成功');
+        closeModal();
+        loadReviews();
+      } else {
+        showToast(res.message, 'error');
+      }
+    }
+
+    async function editReview(reviewId) {
+      const listRes = await api.get('/user/reviews');
+      if (listRes.code !== 200) return;
+      const review = (listRes.data || []).find(r => r.review_id === reviewId);
+      if (!review) return;
+      editingReviewId = reviewId;
+      currentOrderId = review.order_id;
+      document.getElementById('modalTitle').innerHTML = '📝 修改评价';
+      formData.dish_score = review.dish_score || 5;
+      formData.delivery_score = review.delivery_score || 5;
+      document.getElementById('reviewType').value = review.review_type || 1;
+      document.getElementById('reviewContent').value = review.content || '';
+      document.getElementById('dishReviewFields').style.display = 'none';
+      document.getElementById('dishReviewFields').innerHTML = '';
+      updateStarDisplay('dish_score', formData.dish_score);
+      updateStarDisplay('delivery_score', formData.delivery_score);
+      document.getElementById('reviewModal').classList.remove('hidden');
+    }
+
+    async function deleteReview(id) {
+      if (!confirm('确认删除？')) return;
+      const res = await api.del(`/user/reviews/${id}`);
+      if (res.code === 200) {
+        showToast('已删除');
+        loadReviews();
+      } else {
+        showToast(res.message, 'error');
+      }
+    }
+
+    function resetReviewQuery() {
+      document.getElementById('reviewKeyword').value = '';
+      document.getElementById('reviewTypeFilter').value = '';
+      document.getElementById('replyStatusFilter').value = '';
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value = '';
+      loadReviews();
+    }
+
+    async function loadUserInfo() {
+      const u = await checkRole('user');
+      if (u) document.getElementById('userInfo').textContent = '👤 ' + u.username;
+    }
+
+    async function doLogout() {
+      await auth.logout('user');
+      window.location.href = '../../index.html';
+    }
+
+    loadUserInfo();
+    loadReviews();
+    if (urlOrderId) {
+      showReviewModal(parseInt(urlOrderId));
+    }
+  </script>
+</body>
+</html>
