@@ -46,7 +46,8 @@
 ├── requirements.txt               # Python 依赖
 ├── backend/
 │   ├── app.py                     # Flask 应用工厂，注册蓝图
-│   ├── config.py                  # 数据库与应用配置
+│   ├── config.py                  # 数据库与应用配置，读取环境变量或本地覆盖文件
+│   ├── config_local.example.py    # 本地/服务器私密配置示例，复制后填写真实密码
 │   ├── db/
 │   │   └── db_helper.py           # 数据库连接与事务辅助
 │   ├── routes/
@@ -216,25 +217,82 @@ takeaway_ordering_system
 
 ### 5.2 配置数据库连接
 
-修改：
+项目中的 `backend/config.py` 会正常提交到 GitHub，但不会写死真实数据库密码或 Flask 密钥。配置读取顺序如下：
 
-```text
-backend/config.py
+1. 优先读取系统环境变量；
+2. 如果存在 `backend/config_local.py`，再用它覆盖环境变量或默认值；
+3. 如果两者都没有配置，则使用 `backend/config.py` 中的默认开发值。
+
+`backend/config_local.py` 已经被 `.gitignore` 忽略，适合保存本机或服务器真实密码，不会被上传到 GitHub。
+
+推荐方式一：使用环境变量。
+
+Windows PowerShell 示例：
+
+```powershell
+$env:DB_HOST="localhost"
+$env:DB_PORT="3306"
+$env:DB_USER="root"
+$env:DB_PASSWORD="你的MySQL密码"
+$env:DB_NAME="takeaway_ordering_system"
+$env:APP_SECRET_KEY="请换成一串随机密钥"
+$env:APP_HOST="127.0.0.1"
+$env:APP_PORT="5000"
 ```
 
-示例：
+Linux / macOS 示例：
+
+```bash
+export DB_HOST=localhost
+export DB_PORT=3306
+export DB_USER=root
+export DB_PASSWORD='你的MySQL密码'
+export DB_NAME=takeaway_ordering_system
+export APP_SECRET_KEY='请换成一串随机密钥'
+export APP_HOST=127.0.0.1
+export APP_PORT=5000
+```
+
+推荐方式二：使用本地覆盖文件。
+
+复制示例文件：
+
+```powershell
+Copy-Item backend/config_local.example.py backend/config_local.py
+```
+
+然后修改 `backend/config_local.py`：
 
 ```python
 class DatabaseConfig:
     HOST = 'localhost'
     PORT = 3306
     USER = 'root'
-    PASSWORD = 'your_password'
+    PASSWORD = '你的MySQL密码'
     DATABASE = 'takeaway_ordering_system'
     CHARSET = 'utf8mb4'
+
+
+class AppConfig:
+    SECRET_KEY = '请换成一串随机密钥'
+    DEBUG = True
+    HOST = '127.0.0.1'
+    PORT = 5000
 ```
 
-请确保 MySQL 用户名、密码与本机一致。
+`backend/config.py` 保持为可提交版本：
+
+```python
+class DatabaseConfig:
+    HOST = os.getenv('DB_HOST', 'localhost')
+    PORT = int(os.getenv('DB_PORT', '3306'))
+    USER = os.getenv('DB_USER', 'root')
+    PASSWORD = os.getenv('DB_PASSWORD', '')
+    DATABASE = os.getenv('DB_NAME', 'takeaway_ordering_system')
+    CHARSET = os.getenv('DB_CHARSET', 'utf8mb4')
+```
+
+请确保 MySQL 用户名、密码、数据库名与本机或服务器一致。如果没有配置 `DB_PASSWORD`，系统会用空密码连接 MySQL，通常会导致数据库连接失败。
 
 ### 5.3 配置高德地图
 
@@ -247,12 +305,14 @@ frontend/js/map-config.js
 
 ```javascript
 window.MAP_CONFIG = window.MAP_CONFIG || {
-  amapKey: '...',
-  securityJsCode: '...'
+  amapKey: 'your_amap_js_api_key',
+  securityJsCode: 'your_amap_security_js_code'
 };
 ```
 
-这个 Key 必须在高德控制台创建为“Web端(JS API)”类型，并配置安全密钥。普通“Web服务”Key 不能加载 JS 地图组件。未配置或加载失败时，页面会退回纯文本地址输入，不影响注册、保存店铺信息或下单。
+这个 Key 必须在高德控制台创建为“Web端(JS API)”类型，并配置安全密钥。普通“Web服务”Key 不能加载 JS 地图组件。
+
+当前仓库中的 `frontend/js/map-config.js` 默认使用空占位符，避免把真实 Key 上传到 GitHub。未配置或加载失败时，页面会退回纯文本地址输入，不影响注册、保存店铺信息或下单。服务器部署时如果需要地图选点功能，需要在服务器代码或部署流程中填入真实的 `amapKey` 和 `securityJsCode`。
 
 ### 5.4 安装依赖
 
@@ -330,6 +390,58 @@ http://127.0.0.1:5000/index.html
 ```text
 http://127.0.0.1:5000/register.html
 ```
+
+### 5.7 GitHub 仓库与远程地址
+
+当前 GitHub 仓库：
+
+```text
+https://github.com/xiaomizhaMt/database-course-design
+```
+
+本地仓库保留了 Gitee 远程 `origin`，并新增 GitHub 远程 `github`：
+
+```bash
+git remote -v
+```
+
+预期输出包含：
+
+```text
+origin  https://gitee.com/xiaomizhaMt/database-course-design.git
+github  https://github.com/xiaomizhaMt/database-course-design.git
+```
+
+首次上传到 GitHub 时使用的是干净首提交，只上传清理后的当前项目文件，不携带旧 Gitee 历史，避免历史提交里的 token、登录缓存或 API Key 被同步到 GitHub。
+
+后续如果继续在当前 GitHub 分支开发，提交并推送：
+
+```bash
+git add .
+git commit -m "your commit message"
+git push github codex/github-clean-upload:master
+```
+
+如果要回到原 Gitee 历史分支：
+
+```bash
+git switch master
+```
+
+如果要继续更新 Gitee：
+
+```bash
+git push origin master
+```
+
+如果要继续更新 GitHub：
+
+```bash
+git switch codex/github-clean-upload
+git push github codex/github-clean-upload:master
+```
+
+注意：`token.json`、`login.json`、`.env`、`backend/config_local.py`、日志和缓存目录都不会上传；真实密码、真实地图 Key、服务器密钥只应放在环境变量或本地覆盖文件中。
 
 ---
 

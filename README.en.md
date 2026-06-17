@@ -111,6 +111,8 @@ window.MAP_CONFIG = window.MAP_CONFIG || {
 
 If AMap is missing or fails to load, address fields still work as plain text inputs.
 
+The committed `frontend/js/map-config.js` uses empty placeholders so real AMap keys are not uploaded to GitHub. Fill real values only in your local or deployed environment.
+
 ## Delivery Fee And Distance Rules
 
 Delivery fee is calculated from merchant address to receiver address:
@@ -141,7 +143,34 @@ Distance restrictions:
 
 ## Quick Start
 
-1. Configure database connection in `backend/config.py`.
+1. Configure database connection.
+
+`backend/config.py` is committed and reads values from environment variables. Do not hard-code real passwords in this file.
+
+PowerShell example:
+
+```powershell
+$env:DB_HOST="localhost"
+$env:DB_PORT="3306"
+$env:DB_USER="root"
+$env:DB_PASSWORD="your_mysql_password"
+$env:DB_NAME="takeaway_ordering_system"
+$env:APP_SECRET_KEY="change-me"
+```
+
+Linux / macOS example:
+
+```bash
+export DB_HOST=localhost
+export DB_PORT=3306
+export DB_USER=root
+export DB_PASSWORD='your_mysql_password'
+export DB_NAME=takeaway_ordering_system
+export APP_SECRET_KEY='change-me'
+```
+
+Alternatively, copy `backend/config_local.example.py` to `backend/config_local.py` and fill real values there. `backend/config_local.py` is ignored by Git.
+
 2. Install dependencies:
 
 ```bash
@@ -175,6 +204,23 @@ Open:
 ```text
 http://127.0.0.1:5000
 ```
+
+## GitHub Remote
+
+GitHub repository:
+
+```text
+https://github.com/xiaomizhaMt/database-course-design
+```
+
+The local repository keeps Gitee as `origin` and uses `github` for GitHub:
+
+```bash
+git remote -v
+git push github codex/github-clean-upload:master
+```
+
+The GitHub upload was created from a clean initial commit instead of the old Gitee history, so old token/cache/API-key history is not copied to GitHub.
 
 ## Test Accounts
 
