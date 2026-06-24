@@ -24,7 +24,7 @@ English summary of the main Chinese README. The primary document is `README.md`.
 
 ## Screenshots
 
-The following static screenshots are captured from the deployed demo site. Static images render more consistently in GitHub README pages and are easier to scan on mobile.
+The following static screenshots are captured from the deployed demo site. 
 
 | Login | User Home |
 |---|---|
