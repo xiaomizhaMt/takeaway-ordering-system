@@ -1,5 +1,46 @@
 ﻿# 外卖订餐管理系统
 
+[![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](#)
+[![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask&logoColor=white)](#)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-4479A1?logo=mysql&logoColor=white)](#)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+一个覆盖 **用户下单、商家接单、骑手配送、平台管理** 的外卖订餐课程设计项目，基于 Flask + MySQL + 原生前端实现完整业务闭环。
+
+**在线演示**：[https://takewaydesign.top/](https://takewaydesign.top/)  
+**GitHub 仓库**：[xiaomizhaMt/takeaway-ordering-system](https://github.com/xiaomizhaMt/takeaway-ordering-system)
+
+## 项目亮点
+
+- **四端角色完整**：用户端、商家端、配送员端、管理员端均有独立页面和后端接口。
+- **钱包资金闭环**：覆盖充值、支付、退款、商家结算、骑手收益、提现和流水记录。
+- **订单状态完整**：支持支付、接单、备餐、配送、完成、取消、异常、售后等状态流转。
+- **并发安全处理**：库存扣减、商家接单、骑手抢单等关键操作使用事务、行锁或条件更新保护。
+- **地图地址能力**：接入高德地图地址搜索、选点、距离计算、配送费估算和超距离限制。
+- **公开仓库友好**：真实密码和 API Key 通过环境变量或本地私密配置文件管理，避免提交到 Git。
+
+## 界面预览
+
+以下 GIF 来自已部署的在线演示站点，展示系统主要角色和核心页面。
+
+| 登录页 | 用户首页 |
+|---|---|
+| ![登录页](docs/images/01-login.gif) | ![用户首页](docs/images/02-user-home.gif) |
+
+| 用户钱包 | 商家工作台 |
+|---|---|
+| ![用户钱包](docs/images/03-user-wallet.gif) | ![商家工作台](docs/images/04-merchant-dashboard.gif) |
+
+| 商家统计 | 骑手收益 |
+|---|---|
+| ![商家统计](docs/images/05-merchant-statistics.gif) | ![骑手收益](docs/images/06-rider-income.gif) |
+
+| 管理员概览 |
+|---|
+| ![管理员概览](docs/images/07-admin-overview.gif) |
+
+---
+
 ## 1. 项目简介
 
 本项目是一个基于 **Python Flask + MySQL + 原生 HTML/CSS/JavaScript** 的外卖订餐管理系统，围绕：
@@ -44,6 +85,7 @@
 ├── run.py                         # Flask 启动入口
 ├── init_db.py                     # 数据库安全迁移/重置脚本
 ├── requirements.txt               # Python 依赖
+├── docs/images/                   # README 演示截图
 ├── backend/
 │   ├── app.py                     # Flask 应用工厂，注册蓝图
 │   ├── config.py                  # 数据库与应用配置，读取环境变量或本地覆盖文件
@@ -396,7 +438,7 @@ http://127.0.0.1:5000/register.html
 当前 GitHub 仓库：
 
 ```text
-https://github.com/xiaomizhaMt/database-course-design
+https://github.com/xiaomizhaMt/takeaway-ordering-system
 ```
 
 本地仓库保留了 Gitee 远程 `origin`，并新增 GitHub 远程 `github`：
@@ -409,7 +451,7 @@ git remote -v
 
 ```text
 origin  https://gitee.com/xiaomizhaMt/database-course-design.git
-github  https://github.com/xiaomizhaMt/database-course-design.git
+github  https://github.com/xiaomizhaMt/takeaway-ordering-system.git
 ```
 
 首次上传到 GitHub 时使用的是干净首提交，只上传清理后的当前项目文件，不携带旧 Gitee 历史，避免历史提交里的 token、登录缓存或 API Key 被同步到 GitHub。

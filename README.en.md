@@ -1,6 +1,45 @@
 # Takeaway Ordering Management System
 
+[![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](#)
+[![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask&logoColor=white)](#)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-4479A1?logo=mysql&logoColor=white)](#)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+A course-design takeaway ordering system covering **customer ordering, merchant fulfillment, rider delivery, and admin supervision** with Flask, MySQL, and vanilla frontend pages.
+
+Live demo: [https://takewaydesign.top/](https://takewaydesign.top/)  
+GitHub repository: [xiaomizhaMt/takeaway-ordering-system](https://github.com/xiaomizhaMt/takeaway-ordering-system)
+
 English summary of the main Chinese README. The primary document is `README.md`.
+
+## Highlights
+
+- **Four-role workflow**: customer, merchant, rider, and admin pages with separated backend API groups.
+- **Wallet lifecycle**: recharge, payment, refund, merchant settlement, rider income, withdrawals, and ledger records.
+- **Order state management**: payment, merchant acceptance, meal preparation, delivery, completion, cancellation, exceptions, and after-sales handling.
+- **Concurrency-aware backend**: stock deduction, merchant acceptance, and rider task grabbing use transactions, row locks, or conditional updates.
+- **Map and distance support**: AMap address picking, delivery fee calculation, distance sorting, and long-distance restrictions.
+- **Public-repository hygiene**: real passwords and API keys are kept out of Git through environment variables or ignored local overrides.
+
+## Screenshots
+
+The following GIF screenshots are captured from the deployed demo site.
+
+| Login | User Home |
+|---|---|
+| ![Login](docs/images/01-login.gif) | ![User home](docs/images/02-user-home.gif) |
+
+| User Wallet | Merchant Dashboard |
+|---|---|
+| ![User wallet](docs/images/03-user-wallet.gif) | ![Merchant dashboard](docs/images/04-merchant-dashboard.gif) |
+
+| Merchant Statistics | Rider Income Wallet |
+|---|---|
+| ![Merchant statistics](docs/images/05-merchant-statistics.gif) | ![Rider income wallet](docs/images/06-rider-income.gif) |
+
+| Admin Overview |
+|---|
+| ![Admin overview](docs/images/07-admin-overview.gif) |
 
 ## Overview
 
@@ -39,6 +78,7 @@ Roles:
 run.py
 init_db.py
 requirements.txt
+docs/images/
 backend/
   app.py
   config.py
@@ -210,7 +250,7 @@ http://127.0.0.1:5000
 GitHub repository:
 
 ```text
-https://github.com/xiaomizhaMt/database-course-design
+https://github.com/xiaomizhaMt/takeaway-ordering-system
 ```
 
 The local repository keeps Gitee as `origin` and uses `github` for GitHub:
