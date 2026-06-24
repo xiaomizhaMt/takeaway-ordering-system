@@ -8,7 +8,8 @@
 A course-design takeaway ordering system covering **customer ordering, merchant fulfillment, rider delivery, and admin supervision** with Flask, MySQL, and vanilla frontend pages.
 
 Live demo: [https://takewaydesign.top/](https://takewaydesign.top/)  
-GitHub repository: [xiaomizhaMt/takeaway-ordering-system](https://github.com/xiaomizhaMt/takeaway-ordering-system)
+GitHub repository: [xiaomizhaMt/takeaway-ordering-system](https://github.com/xiaomizhaMt/takeaway-ordering-system)  
+Chinese README: [README.md](README.md)
 
 English summary of the main Chinese README. The primary document is `README.md`.
 
@@ -23,23 +24,23 @@ English summary of the main Chinese README. The primary document is `README.md`.
 
 ## Screenshots
 
-The following GIF screenshots are captured from the deployed demo site.
+The following static screenshots are captured from the deployed demo site. Static images render more consistently in GitHub README pages and are easier to scan on mobile.
 
 | Login | User Home |
 |---|---|
-| ![Login](docs/images/01-login.gif) | ![User home](docs/images/02-user-home.gif) |
+| <img src="docs/images/01-login.png" alt="Login" width="420"> | <img src="docs/images/02-user-home.png" alt="User home" width="420"> |
 
 | User Wallet | Merchant Dashboard |
 |---|---|
-| ![User wallet](docs/images/03-user-wallet.gif) | ![Merchant dashboard](docs/images/04-merchant-dashboard.gif) |
+| <img src="docs/images/03-user-wallet.png" alt="User wallet" width="420"> | <img src="docs/images/04-merchant-dashboard.png" alt="Merchant dashboard" width="420"> |
 
 | Merchant Statistics | Rider Income Wallet |
 |---|---|
-| ![Merchant statistics](docs/images/05-merchant-statistics.gif) | ![Rider income wallet](docs/images/06-rider-income.gif) |
+| <img src="docs/images/05-merchant-statistics.png" alt="Merchant statistics" width="420"> | <img src="docs/images/06-rider-income.png" alt="Rider income wallet" width="420"> |
 
 | Admin Overview |
 |---|
-| ![Admin overview](docs/images/07-admin-overview.gif) |
+| <img src="docs/images/07-admin-overview.png" alt="Admin overview" width="860"> |
 
 ## Overview
 

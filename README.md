@@ -8,7 +8,8 @@
 一个覆盖 **用户下单、商家接单、骑手配送、平台管理** 的外卖订餐课程设计项目，基于 Flask + MySQL + 原生前端实现完整业务闭环。
 
 **在线演示**：[https://takewaydesign.top/](https://takewaydesign.top/)  
-**GitHub 仓库**：[xiaomizhaMt/takeaway-ordering-system](https://github.com/xiaomizhaMt/takeaway-ordering-system)
+**GitHub 仓库**：[xiaomizhaMt/takeaway-ordering-system](https://github.com/xiaomizhaMt/takeaway-ordering-system)  
+**English README**：[README.en.md](README.en.md)
 
 ## 项目亮点
 
@@ -21,23 +22,23 @@
 
 ## 界面预览
 
-以下 GIF 来自已部署的在线演示站点，展示系统主要角色和核心页面。
+以下静态截图来自已部署的在线演示站点，展示系统主要角色和核心页面。静态图片在 GitHub README 中加载更稳定，移动端阅读也更清晰。
 
 | 登录页 | 用户首页 |
 |---|---|
-| ![登录页](docs/images/01-login.gif) | ![用户首页](docs/images/02-user-home.gif) |
+| <img src="docs/images/01-login.png" alt="登录页" width="420"> | <img src="docs/images/02-user-home.png" alt="用户首页" width="420"> |
 
 | 用户钱包 | 商家工作台 |
 |---|---|
-| ![用户钱包](docs/images/03-user-wallet.gif) | ![商家工作台](docs/images/04-merchant-dashboard.gif) |
+| <img src="docs/images/03-user-wallet.png" alt="用户钱包" width="420"> | <img src="docs/images/04-merchant-dashboard.png" alt="商家工作台" width="420"> |
 
 | 商家统计 | 骑手收益 |
 |---|---|
-| ![商家统计](docs/images/05-merchant-statistics.gif) | ![骑手收益](docs/images/06-rider-income.gif) |
+| <img src="docs/images/05-merchant-statistics.png" alt="商家统计" width="420"> | <img src="docs/images/06-rider-income.png" alt="骑手收益" width="420"> |
 
 | 管理员概览 |
 |---|
-| ![管理员概览](docs/images/07-admin-overview.gif) |
+| <img src="docs/images/07-admin-overview.png" alt="管理员概览" width="860"> |
 
 ---
 
