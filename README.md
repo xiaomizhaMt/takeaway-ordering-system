@@ -1,26 +1,31 @@
-﻿# 外卖订餐管理系统
+﻿<div align="center">
+
+# 🍔 外卖订餐管理系统
+
+**用户下单 · 商家接单 · 骑手配送 · 平台监管** 的全链路外卖订餐课程设计项目  
+基于 **Flask + MySQL + 原生 HTML/CSS/JavaScript** 实现完整业务闭环
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](#)
 [![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask&logoColor=white)](#)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-4479A1?logo=mysql&logoColor=white)](#)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-一个覆盖 **用户下单、商家接单、骑手配送、平台管理** 的外卖订餐课程设计项目，基于 Flask + MySQL + 原生前端实现完整业务闭环。
+[**🌐 在线演示**](https://takewaydesign.top/) ·
+[**📦 GitHub 仓库**](https://github.com/xiaomizhaMt/takeaway-ordering-system) ·
+[**🇬🇧 English**](README.en.md)
 
-**在线演示**：[https://takewaydesign.top/](https://takewaydesign.top/)  
-**GitHub 仓库**：[xiaomizhaMt/takeaway-ordering-system](https://github.com/xiaomizhaMt/takeaway-ordering-system)  
-**English README**：[README.en.md](README.en.md)
+</div>
 
-## 项目亮点
+## ✨ 项目亮点
 
-- **四端角色完整**：用户端、商家端、配送员端、管理员端均有独立页面和后端接口。
-- **钱包资金闭环**：覆盖充值、支付、退款、商家结算、骑手收益、提现和流水记录。
-- **订单状态完整**：支持支付、接单、备餐、配送、完成、取消、异常、售后等状态流转。
-- **并发安全处理**：库存扣减、商家接单、骑手抢单等关键操作使用事务、行锁或条件更新保护。
-- **地图地址能力**：接入高德地图地址搜索、选点、距离计算、配送费估算和超距离限制。
-- **公开仓库友好**：真实密码和 API Key 通过环境变量或本地私密配置文件管理，避免提交到 Git。
+- 👥 **四端角色完整**：用户端、商家端、配送员端、管理员端均有独立页面和后端接口。
+- 💰 **钱包资金闭环**：覆盖充值、支付、退款、商家结算、骑手收益、提现和流水记录。
+- 📦 **订单状态完整**：支持支付、接单、备餐、配送、完成、取消、异常、售后等状态流转。
+- 🔒 **并发安全处理**：库存扣减、商家接单、骑手抢单等关键操作使用事务、行锁或条件更新保护。
+- 🗺️ **地图地址能力**：接入高德地图地址搜索、选点、距离计算、配送费估算和超距离限制。
+- 🛡️ **公开仓库友好**：真实密码和 API Key 通过环境变量或本地私密配置文件管理，避免提交到 Git。
 
-## 界面预览
+## 🖼️ 界面预览
 
 以下静态截图来自已部署的在线演示站点，展示系统主要角色和核心页面。
 
@@ -39,6 +44,24 @@
 | 管理员概览 |
 |---|
 | <img src="docs/images/07-admin-overview.png" alt="管理员概览" width="860"> |
+
+---
+
+## 📑 目录
+
+- [1. 项目简介](#1-项目简介)
+- [2. 技术栈](#2-技术栈)
+- [3. 项目结构](#3-项目结构)
+- [4. 数据库设计核心](#4-数据库设计核心)
+- [5. 快速开始](#5-快速开始)
+- [6. 测试账号与正常登录复现](#6-测试账号与正常登录复现)
+- [7. 推荐演示流程](#7-推荐演示流程)
+- [8. 重点功能说明](#8-重点功能说明)
+- [9. 核心接口摘要](#9-核心接口摘要)
+- [10. 本次重点完善内容](#10-本次重点完善内容)
+- [11. 初始化后检查点](#11-初始化后检查点)
+- [12. 常见问题](#12-常见问题)
+- [13. 注意事项](#13-注意事项)
 
 ---
 

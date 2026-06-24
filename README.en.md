@@ -1,28 +1,34 @@
-# Takeaway Ordering Management System
+<div align="center">
+
+# 🍔 Takeaway Ordering Management System
+
+Full-chain takeaway ordering course-design project covering  
+**customer ordering · merchant fulfillment · rider delivery · admin supervision**  
+Built with **Flask + MySQL + vanilla HTML/CSS/JavaScript**
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](#)
 [![Flask](https://img.shields.io/badge/Flask-3.0-000000?logo=flask&logoColor=white)](#)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0%2B-4479A1?logo=mysql&logoColor=white)](#)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A course-design takeaway ordering system covering **customer ordering, merchant fulfillment, rider delivery, and admin supervision** with Flask, MySQL, and vanilla frontend pages.
+[**🌐 Live Demo**](https://takewaydesign.top/) ·
+[**📦 GitHub Repo**](https://github.com/xiaomizhaMt/takeaway-ordering-system) ·
+[**🇨🇳 中文**](README.md)
 
-Live demo: [https://takewaydesign.top/](https://takewaydesign.top/)  
-GitHub repository: [xiaomizhaMt/takeaway-ordering-system](https://github.com/xiaomizhaMt/takeaway-ordering-system)  
-Chinese README: [README.md](README.md)
+</div>
 
-English summary of the main Chinese README. The primary document is `README.md`.
+> English summary of the main Chinese README. The primary document is `README.md`.
 
-## Highlights
+## ✨ Highlights
 
-- **Four-role workflow**: customer, merchant, rider, and admin pages with separated backend API groups.
-- **Wallet lifecycle**: recharge, payment, refund, merchant settlement, rider income, withdrawals, and ledger records.
-- **Order state management**: payment, merchant acceptance, meal preparation, delivery, completion, cancellation, exceptions, and after-sales handling.
-- **Concurrency-aware backend**: stock deduction, merchant acceptance, and rider task grabbing use transactions, row locks, or conditional updates.
-- **Map and distance support**: AMap address picking, delivery fee calculation, distance sorting, and long-distance restrictions.
-- **Public-repository hygiene**: real passwords and API keys are kept out of Git through environment variables or ignored local overrides.
+- 👥 **Four-role workflow**: customer, merchant, rider, and admin pages with separated backend API groups.
+- 💰 **Wallet lifecycle**: recharge, payment, refund, merchant settlement, rider income, withdrawals, and ledger records.
+- 📦 **Order state management**: payment, merchant acceptance, meal preparation, delivery, completion, cancellation, exceptions, and after-sales handling.
+- 🔒 **Concurrency-aware backend**: stock deduction, merchant acceptance, and rider task grabbing use transactions, row locks, or conditional updates.
+- 🗺️ **Map and distance support**: AMap address picking, delivery fee calculation, distance sorting, and long-distance restrictions.
+- 🛡️ **Public-repository hygiene**: real passwords and API keys are kept out of Git through environment variables or ignored local overrides.
 
-## Screenshots
+## 🖼️ Screenshots
 
 The following static screenshots are captured from the deployed demo site. 
 
@@ -41,6 +47,21 @@ The following static screenshots are captured from the deployed demo site.
 | Admin Overview |
 |---|
 | <img src="docs/images/07-admin-overview.png" alt="Admin overview" width="860"> |
+
+## 📑 Table of Contents
+
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Database](#database)
+- [AMap Configuration](#amap-configuration)
+- [Delivery Fee And Distance Rules](#delivery-fee-and-distance-rules)
+- [Cart And Orders](#cart-and-orders)
+- [Quick Start](#quick-start)
+- [GitHub Remote](#github-remote)
+- [Test Accounts](#test-accounts)
+- [Main API Groups](#main-api-groups)
+- [Notes](#notes)
 
 ## Overview
 
